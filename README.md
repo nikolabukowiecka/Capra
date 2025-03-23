@@ -20,3 +20,7 @@ energyStep = 1,2,3,4,5,6
 5. Export the data. You will get two types of data:
 a) One without the "Null" in the dataname - those serve for post-processing of the map (when loading to Mathematica from files), that will have pixels with 0 exposure time (unobserved) replaced with the word "bad" (for "bad pixel").
 b) One with the "Null" in the dataname - those serve for straight up visualization with Python healpy library, that requires "Nulls", so the pixels with 0 exposure time will be replaced with Null.
+
+Maciej Bzowski from Polish Space Research Centre, Polish Academy of Sciences contributed with geometricPackage.wl, and with general design and science advice to the project.
+Marzena Kubiak from Polish Space Research Centre, Polish Academy of Sciences contributed with the collimator function. 
+This study was supported by the Polish Ministry for Education and Science under contract MEiN/2021/2/DIR. 
