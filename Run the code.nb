@@ -1,0 +1,156 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Mathematica 14.0' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       158,          7]
+NotebookDataLength[      5798,        148]
+NotebookOptionsPosition[      4857,        126]
+NotebookOutlinePosition[      5254,        142]
+CellTagsIndexPosition[      5211,        139]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"baseDir", " ", "=", " ", 
+   RowBox[{"Which", "[", "\[IndentingNewLine]", 
+    RowBox[{
+     RowBox[{
+     "$MachineName", " ", "\[Equal]", " ", "\"\<nikolabukowiecka\>\""}], ",", 
+     " ", 
+     RowBox[{"{", "\"\</Users/nikolabukowiecka/Capra\>\"", "}"}]}], "]"}]}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"healpixDir", " ", "=", " ", 
+   RowBox[{"ToFileName", "[", 
+    RowBox[{"baseDir", ",", "\"\<healpix\>\""}], "]"}]}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"ibexDataDir", " ", "=", " ", 
+   RowBox[{"ToFileName", "[", 
+    RowBox[{"baseDir", ",", "\"\<ibex\>\""}], "]"}]}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"ibexDataName", "=", "\"\<Map2018A_1deg_binned\>\""}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"spinAxDir", "=", 
+   RowBox[{"ToFileName", "[", 
+    RowBox[{"ibexDataDir", ",", " ", "\"\<goodTimes_Axis\>\""}], "]"}]}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"outputDir", " ", "=", " ", 
+   RowBox[{"ToFileName", "[", 
+    RowBox[{"baseDir", ",", " ", "\"\<output\>\""}], "]"}]}], ";"}]}], "Input",\
+
+ CellChangeTimes->{{3.857892236794358*^9, 3.857892280426411*^9}, {
+   3.857892462470665*^9, 3.857892464947736*^9}, {3.85875127343089*^9, 
+   3.858751307096215*^9}, {3.869205710603828*^9, 3.869205712776311*^9}, 
+   3.869205863863531*^9, {3.869205926828292*^9, 3.869205929458572*^9}, {
+   3.869215761554949*^9, 3.869215763029582*^9}, 3.879323817185485*^9, {
+   3.887177714699074*^9, 3.887177724644065*^9}, 3.8910577906135397`*^9, {
+   3.915483388764922*^9, 3.915483390843832*^9}, {3.951660917195335*^9, 
+   3.951660919317699*^9}, {3.951668481942416*^9, 3.951668482450834*^9}, {
+   3.951670031029915*^9, 3.951670042865576*^9}, {3.951670139246717*^9, 
+   3.951670139452889*^9}, {3.951670342185798*^9, 3.951670392632017*^9}, 
+   3.9516704517144537`*^9, 3.951671123751107*^9, {3.951671195629028*^9, 
+   3.9516712065380783`*^9}},
+ CellLabel->"In[1]:=",ExpressionUUID->"b4b3aae0-cdd5-4bbb-9753-3e64bf63f5e6"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"Import", "[", 
+   RowBox[{"baseDir", "<>", "\"\</initializePackage.wl\>\""}], "]"}], 
+  ";"}]], "Input",
+ CellChangeTimes->{{3.9516786771348877`*^9, 3.951678678373177*^9}},
+ CellLabel->"In[7]:=",ExpressionUUID->"5e2417a0-cdad-40e3-a2e4-b226be7c816d"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"ibexHi", "=", 
+   RowBox[{"loadData", "[", 
+    RowBox[{
+    "baseDir", ",", "ibexDataDir", ",", "ibexDataName", ",", "spinAxDir", ",",
+      "outputDir"}], "]"}]}], ";"}]], "Input",
+ CellChangeTimes->{
+  3.951671260558386*^9, {3.951671360189296*^9, 3.951671360853774*^9}, {
+   3.9516786952337713`*^9, 3.951678695342558*^9}, 3.9516788131437283`*^9},
+ CellLabel->"In[19]:=",ExpressionUUID->"0f8fbf9e-c64a-49ba-98ca-1a839426f16b"],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"scanRadius", " ", "=", " ", "90"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"colRadius", " ", "=", "10"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"tesselation", "=", "4"}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"energyStep", "=", "5"}], ";"}]}], "Input",
+ CellChangeTimes->{{3.951678701508566*^9, 3.951678737271407*^9}, {
+  3.9516788828389997`*^9, 3.951678929611484*^9}, {3.9516789692805777`*^9, 
+  3.9516789894921494`*^9}},
+ CellLabel->"In[52]:=",ExpressionUUID->"77c05926-127a-4372-b70c-a899a68b5e87"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"run", "[", 
+  RowBox[{"ibexHi", ",", " ", "healpixDir"}], "]"}]], "Input",
+ CellChangeTimes->{{3.951671454748105*^9, 3.95167146326074*^9}},
+ CellLabel->"In[56]:=",ExpressionUUID->"a56ad0e2-f946-4c97-bf67-81b0e5a94d3d"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"7.814853`", ",", "Null"}], "}"}]], "Output",
+ CellChangeTimes->{
+  3.951671468724094*^9, 3.9516787514916*^9, {3.951678875428137*^9, 
+   3.95167889420505*^9}, {3.9516789712902527`*^9, 3.951678998671152*^9}},
+ CellLabel->"Out[56]=",ExpressionUUID->"2596ecff-cd4d-45ba-908c-d6de2fa5c6ab"]
+}, Open  ]],
+
+Cell[BoxData[
+ RowBox[{"exportData", "[", 
+  RowBox[{
+  "mapCountsMain", ",", "mapExposuresMain", ",", "tesselation", ",", 
+   "energyStep", ",", "outputDir"}], "]"}]], "Input",
+ CellChangeTimes->{{3.95167191681955*^9, 3.951671929254396*^9}},
+ CellLabel->"In[57]:=",ExpressionUUID->"1fd37ea4-96df-49ac-a4dd-2863418294ae"]
+},
+WindowSize->{808, 663},
+WindowMargins->{{Automatic, 34}, {Automatic, 25}},
+FrontEndVersion->"14.0 for Mac OS X ARM (64-bit) (December 12, 2023)",
+StyleDefinitions->"Default.nb",
+ExpressionUUID->"ce59131c-8522-42ad-b24a-d993a4de15fd"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[558, 20, 2032, 45, 157, "Input",ExpressionUUID->"b4b3aae0-cdd5-4bbb-9753-3e64bf63f5e6"],
+Cell[2593, 67, 285, 6, 30, "Input",ExpressionUUID->"5e2417a0-cdad-40e3-a2e4-b226be7c816d"],
+Cell[2881, 75, 463, 10, 30, "Input",ExpressionUUID->"0f8fbf9e-c64a-49ba-98ca-1a839426f16b"],
+Cell[3347, 87, 575, 12, 94, "Input",ExpressionUUID->"77c05926-127a-4372-b70c-a899a68b5e87"],
+Cell[CellGroupData[{
+Cell[3947, 103, 242, 4, 30, "Input",ExpressionUUID->"a56ad0e2-f946-4c97-bf67-81b0e5a94d3d"],
+Cell[4192, 109, 325, 6, 34, "Output",ExpressionUUID->"2596ecff-cd4d-45ba-908c-d6de2fa5c6ab"]
+}, Open  ]],
+Cell[4532, 118, 321, 6, 30, "Input",ExpressionUUID->"1fd37ea4-96df-49ac-a4dd-2863418294ae"]
+}
+]
+*)
+
