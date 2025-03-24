@@ -216,7 +216,9 @@ zeroList=Flatten[Position[dataRat,"bad"]];
 If[zeroList!={},
 dataRat=Last[With[{x=zeroList[[#]]},dataRat=ReplacePart[dataRat,x->Null]]&/@Range[Length[zeroList]]]];
 flux=fluxHEALPix[dataRat,tesselation];
-dat=ExportString[Transpose[Append[{Range[Length[flux]]},flux]],"Table"];
+dat=
+
+String[Transpose[Append[{Range[Length[flux]]},flux]],"Table"];
 Export[ToFileName[outputDir]<>"data_flux_t"<>ToString[tesselation]<>"_"<>ToString[energyStep]<>".txt",dat];
 ]
 createRelativeFluxMapHP[healpixDir_,outputDir_]:=Module[{dataPath,dataCts,dataExp,dataRat,zeroList,flux,fluxNew,relativeFluxNew,meanRelFluxNew,dat},
@@ -252,7 +254,7 @@ init[hpPathNew,tesselationNew];
 coordinatesNew=getHPcoord[healpixringxyz];
 dataNew=uniformTessellationChange[dataRat,coordinates,coordinatesNew,tesselationNew];
 dat=ExportString[Transpose[Append[{Range[Length[dataNew]]},dataNew]],"Table"];
-Export[ToFileName[outputDir]<>"data_TessellationChange"<>ToString[tesselationNew]<>"_t"<>ToString[tesselation]<>"_"<>ToString[energyStep]<>".txt",dat];
+Export[ToFileName[outputDir]<>"data_UniformTessellationChange"<>ToString[tesselationNew]<>"_t"<>ToString[tesselation]<>"_"<>ToString[energyStep]<>".txt",dat];
 ]
 
 
@@ -273,7 +275,7 @@ If[zeroList!={},
 dataRat=Last[With[{x=zeroList[[#]]},dataRat=ReplacePart[dataRat,x->Null]]&/@Range[Length[zeroList]]]];
 dataNew=partialTessellationChange[coordinatesChanged,dataRat,coordinates,coordinatesNew,tesselationNew];
 dat=ExportString[Transpose[Append[{Range[Length[dataNew]]},dataNew]],"Table"];
-Export[ToFileName[outputDir]<>"data_new_t"<>ToString[tesselation]<>"_"<>ToString[energyStep]<>".txt",dat];
+Export[ToFileName[outputDir]<>"data_PartialTessellationChange"<>ToString[tesselationNew]<>"_t"<>ToString[tesselation]<>"_"<>ToString[energyStep]<>".txt",dat];
 ]
 
 
