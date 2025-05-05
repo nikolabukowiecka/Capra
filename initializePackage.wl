@@ -12,7 +12,7 @@ ibexHi = Map[ fun`ibexDataRead[ToFileName[ibexDataDir,ibexDataName], #]&, ibexFi
 run[ibexHi_,healpixDir_]:=Module[{hpPath},
 hpPath = ToFileName[healpixDir,"testXYZ"];
 init[hpPath,tesselation];
-AbsoluteTiming[Module[{orbitCount=#,exposuretime,counts,ibexLatitute,ibexLongtitude,rotationAxisAng,visibilityRangePixels,oneOrbitMap,mapCounts,mapExposures,mapRates},
+AbsoluteTiming[ParallelMap[Module[{orbitCount=#,exposuretime,counts,ibexLatitute,ibexLongtitude,rotationAxisAng,visibilityRangePixels,oneOrbitMap,mapCounts,mapExposures,mapRates},
 exposuretime=ToExpression["expE"<>ToString[energyStep]]/.ibexHi[[orbitCount]];
 counts= ToExpression["ctsE"<>ToString[energyStep]]/.ibexHi[[orbitCount]] ;
 	ibexLatitute= ToExpression["eclatE"<>ToString[energyStep]]/.ibexHi[[orbitCount]] ;
@@ -26,7 +26,7 @@ mapCounts=Total[Module[{element=#},First[Last[#]]&/@element]&/@oneOrbitMap];
 mapCountsMain=mapCountsMain+mapCounts;
 mapExposures=Total[Module[{element=#},Last[#][[2]]&/@element]&/@oneOrbitMap];
 mapExposuresMain=mapExposuresMain+mapExposures;
-]&/@Range[Length[ibexHi]];]
+]&,Range[Length[ibexHi]]];]
 ]
 
 
