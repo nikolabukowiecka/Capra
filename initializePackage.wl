@@ -9,24 +9,27 @@ ibexHi = Map[ fun`ibexDataRead[ToFileName[ibexDataDir,ibexDataName], #]&, ibexFi
 ]
 
 
-run[ibexHi_,healpixDir_]:=Module[{hpPath},
-hpPath = ToFileName[healpixDir,"testXYZ"];
-init[hpPath,tesselation];
-AbsoluteTiming[ParallelMap[Module[{orbitCount=#,exposuretime,counts,ibexLatitute,ibexLongtitude,rotationAxisAng,visibilityRangePixels,oneOrbitMap,mapCounts,mapExposures,mapRates},
-exposuretime=ToExpression["expE"<>ToString[energyStep]]/.ibexHi[[orbitCount]];
-counts= ToExpression["ctsE"<>ToString[energyStep]]/.ibexHi[[orbitCount]] ;
-	ibexLatitute= ToExpression["eclatE"<>ToString[energyStep]]/.ibexHi[[orbitCount]] ;
-ibexLongtitude =ToExpression["eclonE"<>ToString[energyStep]]/.ibexHi[[orbitCount]] ;
-rotationAxisAng = {spinAxEcLon/.ibexHi[[orbitCount]],spinAxEcLat/.ibexHi[[orbitCount]]};
-visibilityRangePixels=choseRing[rotationAxisAng];
-	Print["Loading orbit ", orbNo/.ibexHi[[orbitCount]] ];
-Print["Orbit ",orbitCount];
-oneOrbitMap=calcOneOrbit[ibexLatitute,ibexLongtitude,exposuretime,counts,visibilityRangePixels,healpixringxyz];
-mapCounts=Total[Module[{element=#},First[Last[#]]&/@element]&/@oneOrbitMap];
-mapCountsMain=mapCountsMain+mapCounts;
-mapExposures=Total[Module[{element=#},Last[#][[2]]&/@element]&/@oneOrbitMap];
-mapExposuresMain=mapExposuresMain+mapExposures;
-]&,Range[Length[ibexHi]]];]
+run[ibexHi_, healpixDir_] := Module[{hpPath, result, mapCountsMain, mapExposuresMain},
+hpPath = ToFileName[healpixDir, "testXYZ"];
+init[hpPath, tesselation];
+AbsoluteTiming[
+result = ParallelMap[
+Module[{orbitCount = #, exposuretime, counts, ibexLatitude, ibexLongitude, 
+rotationAxisAng, visibilityRangePixels, oneOrbitMap, mapCounts, mapExposures},
+exposuretime = ToExpression["expE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
+counts = ToExpression["ctsE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
+ibexLatitude  = ToExpression["eclatE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
+ibexLongitude = ToExpression["eclonE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
+rotationAxisAng = {spinAxEcLon /. ibexHi[[orbitCount]], spinAxEcLat /. ibexHi[[orbitCount]]};
+visibilityRangePixels = choseRing[rotationAxisAng];
+Print["Loading orbit ", orbNo /. ibexHi[[orbitCount]]];
+oneOrbitMap = calcOneOrbit[ibexLatitude, ibexLongitude, exposuretime, counts, visibilityRangePixels, healpixringxyz];
+mapCounts = Total[Module[{element = #}, First[Last[#]] & /@ element] & /@ oneOrbitMap];
+mapExposures = Total[Module[{element = #}, Last[#][[2]] & /@ element] & /@ oneOrbitMap];
+{mapCounts, mapExposures}] &, Range[Length[ibexHi]]];
+mapCountsMain    = Total[result[[All, 1]]];
+mapExposuresMain = Total[result[[All, 2]]];
+{mapCountsMain, mapExposuresMain}]
 ]
 
 
