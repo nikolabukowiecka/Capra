@@ -73,11 +73,20 @@ yR=yR/Ctrans
 ]
 
 
-coll[tesselation_,healpixringxyz_,angle1_,angle2_,colPixelsDistances_]:=Module[{collCentreVector,collPixelVectors,alphas,alphas2,colim1,colim2,domega,colimatorBeforeFilter,colimatorAfterFilter1,collPixelVectors2,a1,n1,a2,n2,colimatorAfter2},
-collCentreVector=makeVec[angle2*1. Degree,angle1*1. Degree];collPixelVectors=healpixringxyz[[colPixelsDistances[[;;,1]]]];
+collBkg[R_]:=
+Module[{h2d},
+h2d = 6.67178; (*height to deimeter ratio of the holes in the collimator*)
+(2/Pi)*( ArcCos[ h2d * Tan[R Degree] ] - h2d * Tan[R Degree] * Sqrt[1 - (h2d*Tan[R Degree])^2])
+]
+
+
+coll[tesselation_,healpixringxyz_,angle1_,angle2_,colPixelsDistances_]:=Module[{collCentreVector,collPixelVectors,alphas,alphas2,colim1,colim2,colimBkg,colimBkg2,domega,colimatorBeforeFilter,colimatorAfterFilter1,collPixelVectors2,a1,a1bkg,n1,n1bkg,a2,a2bkg,n2,n2bkg,colimatorAfter2},
+collCentreVector=makeVec[angle2*1. Degree,angle1*1. Degree];
+collPixelVectors=healpixringxyz[[colPixelsDistances[[;;,1]]]];
 alphas=VectorAngle[collCentreVector,#]&/@collPixelVectors;
 colim1=collHi[colPixelsDistances[[#]][[2]]/Degree,alphas[[#]]/Degree,1]&/@Range[Length[alphas]];
-colim1=Transpose[Append[{colPixelsDistances[[;;,1]]},colim1]];
+colimBkg=collBkg[colPixelsDistances[[#]][[2]]]&/@Range[Length[colPixelsDistances]];
+(*colim1=Transpose[Append[{colPixelsDistances[[;;,1]]},colim1]];
 colimatorBeforeFilter=Transpose[Append[{colPixelsDistances[[;;,1]],colPixelsDistances[[;;,2]]},colim1[[;;,2]]]];
 colimatorAfterFilter1=Select[colimatorBeforeFilter,#[[3]]>0&];
 domega = Pi/(3*tesselation^2)*1./Degree;
@@ -89,7 +98,18 @@ alphas2=VectorAngle[collCentreVector,#]&/@collPixelVectors2;
 colimatorAfter2=collHi[colimatorAfterFilter1[[#]][[2]]/Degree,alphas2[[#]]/Degree,a2]&/@Range[Length[alphas2]];
 colimatorAfter2=Transpose[Append[{colimatorAfterFilter1[[;;,1]],colimatorAfterFilter1[[;;,2]]},colimatorAfter2]];
 n2=1.Total[Map[colimatorAfter2[[#,3]]&,Range[Length[colimatorAfter2]]]];
-colimatorAfter2[[;;,{1,3}]]
+colimatorAfter2[[;;,{1,3}]]*)
+domega = Pi/(3*tesselation^2)*1./Degree;
+
+a1=Total[colim1*domega];
+n1=Total[colim1/a1];
+a2=a1*n1;
+
+a1bkg=Total[colimBkg*domega];
+n1bkg=Total[colimBkg/a1bkg];
+a2bkg=a1bkg*n1bkg;
+
+{Transpose[Append[{colPixelsDistances[[;;,1]]},(colim1/a2)]], Transpose[Append[{colPixelsDistances[[;;,1]]},(colimBkg/a2bkg)]]}
 ]
 
 
@@ -115,20 +135,45 @@ colPixels=Select[angLengths,#[[2]]>=Cos[colRadius*1. Degree]&];
 Transpose[Append[{colPixels[[;;,1]]},If[colPixels[[#,2]]>1.,colPixels[[#,2]]=1;ArcCos[colPixels[[#,2]]],ArcCos[colPixels[[#,2]]]]&/@Range[Length[colPixels]]]]
 ]
 
-calcOneOrbit[ibexLatitute_,ibexLongtitude_,exposuretime_,counts_,visibilityRangePixels_,healpixringxyz_]:=Module[{measurementIndex=#,angle1,angle2,exposureTime,countValue,colPixelsDistances,colValues,nonColPixelsWithZeros,colPixelsWithValues},
-angle1 = ibexLatitute[[measurementIndex]];
-angle2=ibexLongtitude[[measurementIndex]];
-exposureTime=exposuretime[[measurementIndex]];
+ calcOneOrbit[ibexLatitude_,ibexLongitude_,exposuretime_,counts_,backgroundRate_,visibilityRangePixels_,healpixringxyz_]:=Module[{measurementIndex=#,angle1,angle2,exposuretimeValue,countValue,backgroundRateValue,colPixelsDistances,exposuretimeValueNormalized,colValues,colValuesBkg,nonColPixelsWithZeros,collimatorLevel,colPixelsWithValues},
+angle1 = ibexLatitude[[measurementIndex]];
+angle2=ibexLongitude[[measurementIndex]];
+exposuretimeValue=exposuretime[[measurementIndex]];
 countValue=counts[[measurementIndex]];
+backgroundRateValue=backgroundRate[[measurementIndex]];
 colPixelsDistances=calculateLengthsForColPixels[angle1,angle2,visibilityRangePixels];
-colValues=coll[tesselation,healpixringxyz,angle1,angle2,colPixelsDistances];
-nonColPixelsWithZeros=#->{0,0}&/@Complement[Range[Length[healpixringxyz]],colValues[[;;,1]]];
-colPixelsWithValues=Module[{idx=#},idx[[1]]->{idx[[2]]*countValue,exposureTime}]&/@colValues;
-Sort[Join[nonColPixelsWithZeros,colPixelsWithValues]]
-]&/@Range[Length[ibexLatitute]];
+{colValues,colValuesBkg} = coll[tesselation,healpixringxyz,angle1,angle2,colPixelsDistances];
+If[exposuretimeValue!= 0,
+exposuretimeValueNormalized=exposuretimeValue/((Total[ConstantArray[exposuretimeValue,Length[colValues]]])/exposuretimeValue),exposuretimeValueNormalized=exposuretimeValue];
+nonColPixelsWithZeros=#->{0,0,0}&/@Complement[Range[Length[healpixringxyz]],colValues[[;;,1]]];
+colPixelsWithValues=MapThread[(Module[{idx=#1,idx2=#2},idx[[1]]->{idx[[2]]*countValue, exposuretimeValueNormalized, (idx[[2]]*countValue - idx2[[2]]*(backgroundRateValue*exposuretimeValue))}])&,{colValues, colValuesBkg}];
+(*Print["Signal, so count - (background*exp) from measurement: ", countValue-backgroundRateValue*exposuretimeValue];*)
+collimatorLevel=Sort[Join[nonColPixelsWithZeros,colPixelsWithValues]]
+
+(*Print["Count value: ", countValue, " , exposure time  ", exposuretimeValue, " and : count - (background*exp) from measurement: ", countValue-backgroundRateValue*exposuretimeValue];
+Print["Count value and exposure time value on the collimator: ",collimatorLevel[[;;,2]][[;;,1;;2]]//Total, ", count - (background * exposure): ",(collimatorLevel[[;;,2]][[;;,3]]//Total) ];*)
+]&/@Range[Length[ibexLatitude]];
 
 
 calculateRatesMathematica[counts_,exposures_]:=Module[{idx=#,rates},If[exposures[[idx]]!=0,rates=counts[[idx]]/exposures[[idx]],rates="bad"]]&/@Range[Length[counts]];
 
 
+calculateENAFluxMathematica[signal_, exposuretime_]:=Module[{centralEnergies, centralEnergy, geometricFactorTriples, geometricFactor, omega,flux},
+geometricFactorTriples = {0.00013,0.00037,0.00073,.0014,0.0025,0.0042};
+centralEnergies = {0.45, 0.71, 1.10, 1.74, 2.73, 4.29};
+geometricFactor = geometricFactorTriples[[energyStep - 3]];
+centralEnergy   = centralEnergies[[energyStep - 3]];
+flux=MapThread[If[#2!=0,#1/(#2*geometricFactor*centralEnergy),"bad"]&,{signal,exposuretime}]
+]
+
+
 calculateRatesHealpy[counts_,exposures_]:=Module[{idx=#,rates},If[exposures[[idx]]!=0,rates=counts[[idx]]/exposures[[idx]],rates=Null]]&/@Range[Length[counts]];
+
+
+calculateENAFluxHealpy[signal_, exposuretime_]:=Module[{centralEnergies, centralEnergy, geometricFactorTriples, geometricFactor, omega,flux},
+geometricFactorTriples = {0.00013,0.00037,0.00073,.0014,0.0025,0.0042};
+centralEnergies = {0.45, 0.71, 1.10, 1.74, 2.73, 4.29};
+geometricFactor = geometricFactorTriples[[energyStep - 3]];
+centralEnergy   = centralEnergies[[energyStep - 3]];
+flux=MapThread[If[#2!=0,#1/(#2*geometricFactor*centralEnergy),0]&,{signal,exposuretime}]
+]

@@ -174,6 +174,14 @@ If[zeroList!={},
 flux=Last[With[{x=zeroList[[#]]},flux=ReplacePart[flux,x->Null]]&/@Range[Length[zeroList]]]];
 flux]
 
+fluxENAHEALPix[signal_, exposuretime_, tesselation_, energyStep_]:=Module[{centralEnergies, centralEnergy, geometricFactorTriples, geometricFactor, omega,flux},
+geometricFactorTriples = {0.00013,0.00037,0.00073,.0014,0.0025,0.0042};
+centralEnergies = {0.45, 0.71, 1.10, 1.74, 2.73, 4.29};
+geometricFactor = geometricFactorTriples[[energyStep - 3]];
+centralEnergy   = centralEnergies[[energyStep - 3]];
+flux=MapThread[If[#2!=0,#1/(#2*geometricFactor*centralEnergy),0]&,{signal,exposuretime}]
+]
+
 relativeFluxHEALPix[data_]:=Module[{meanData,relativeData},
 meanData=Mean[DeleteCases[data,Null]];
 relativeData=data/meanData;
@@ -409,6 +417,19 @@ rates=Partition[rates,resolution[[2]]];
 mapFinalHP2IB=rates;
 dat=ExportString[mapFinalHP2IB,"Table"];
 Export[ToFileName[outputDir]<>"normalizedHP2IB_"<>ToString[tesselation]<>"_"<>ToString[energyStep]<>"_"<>ToString[onePixelResolution[[1]]]<>"_"<>ToString[onePixelResolution[[2]]]<>".txt",dat];
+]
+
+changeGridHP2[dataFlux_,resolution_,outputDir_]:=Module[{coordinates,data,coordinatesWithValues,mapFinalFlux,mapFinalFluxNormalized,flux,mapFinalHP2IB,dat},
+coordinates=getHPcoord[healpixringxyz];
+data=dataFlux;
+data=Transpose[Append[{Range[Length[data]]},data]];
+coordinatesWithValues=Transpose[Append[{coordinates},data[[;;,2]]]];
+mapFinalFlux=makeHpToIbMap[coordinatesWithValues,resolution];
+flux= Partition[Flatten[mapFinalFlux[[;;,;;,3]]],resolution[[2]]];
+(*mapFinalFluxNormalized=normalize[onePixelResolution,flux];*)
+mapFinalFluxNormalized=mapFinalFluxNormalized/. 0.->Null;
+dat=ExportString[mapFinalHP2IB,"Table"];
+Export[ToFileName[outputDir]<>"normalized2HP2IB_"<>ToString[tesselation]<>"_"<>ToString[energyStep]<>"_"<>ToString[onePixelResolution[[1]]]<>"_"<>ToString[onePixelResolution[[2]]]<>".txt",dat];
 ]
 
 changeGridRibbonHP[healpixDir_,resolution_,outputDir_]:=Module[{dataPath,dataRatesOriginal,zeroList,coordinatesOriginal,healpixPixelsClassifiedOriginal,originalFields,healpixringxyzTransformed,coordinatesChanged,hpChangedValues,newFields,dataNew,data,coordinatesWithValues,mapFinalRates,rates,mapFinalHP2IB,dat},
