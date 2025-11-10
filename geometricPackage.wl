@@ -19,6 +19,33 @@ healpix`fun`ang2pixRing[nSide_, \[Theta]_, \[Phi]_] :=
          ir = jp + jm + 1; ip = Floor[tt*ir] + 1; 
          ip = If[ip > 4*ir, ip - 4*ir, ip]; ipix1 = 2*ir*(ir - 1) + ip; 
          If[z <= 0., npix - 2*ir*(ir + 1) + ip, ipix1]]; ipix1 - 1]
+         
+healpix`fun`pix2angRing[nSide_Integer?Positive, iPix_Integer?NonNegative] :=
+ Module[{nl2 = 2 nSide, ncap, npix, ip = iPix + 1, ir, iphi, z, phi},
+  ncap = nl2 (nSide - 1);
+  npix = 12 nSide^2;
+  Which[
+   ip <= ncap,                                     (* north cap *)
+   ir = Floor[(1 + Sqrt[1 + 2. ip])/2];
+   iphi = ip - 2 ir (ir - 1);
+   z = 1 - ir^2/(3. nSide^2);
+   phi = (Pi/2) (iphi - 0.5)/ir;,
+
+   ip <= npix - ncap,                              (* equatorial *)
+   ir = Floor[(ip - ncap - 1)/(4 nSide)] + nSide;
+   iphi = ip - ncap - 4 nSide (ir - nSide);
+   z = (2 nSide - ir)/(1.5 nSide);
+   phi = (Pi/2) (iphi - If[EvenQ[ir], 0.5, 0])/nSide;,
+
+   True,                                           (* south cap *)
+   ip = npix - ip + 1;
+   ir = Floor[(1 + Sqrt[1 + 2. ip])/2];
+   iphi = 4 ir + 1 - (ip - 2 ir (ir - 1));
+   z = -1 + ir^2/(3. nSide^2);
+   phi = (Pi/2) (iphi - 0.5)/ir;
+  ];
+  {ArcCos[z], Mod[phi, 2 Pi]}
+]
  
 \[Phi] = 0.09023352232810683
  
