@@ -38,6 +38,7 @@ result = ParallelMap[
 	mapCountsMain = Total[result[[All, 1]]];
 	mapExposuresMain = Total[result[[All, 2]]];
 	mapSignalMain = Total[result[[All, 3]]];
+	mapSignalMain = mapSignalMain /. x_?NumericQ /; x < 0 -> 0;
 	mapCountsMain = (mapCountsMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
 	mapExposuresMain = (mapExposuresMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
 	mapSignalMain = (mapSignalMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
