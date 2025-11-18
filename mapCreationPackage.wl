@@ -137,11 +137,11 @@ yR=yR/Ctrans
 ]
 
 
-collBkg[R_]:= (*function specific to IBEX background monitor, currently not used - have to implemented separate PSF*)
+(*collBkg[R_]:= (*function specific to IBEX background monitor, currently not used - have to implemented separate PSF*)
 Module[{h2d}, 
 h2d = 6.67178; (*height to deimeter ratio of the holes in the collimator*)
 (2/Pi)*( ArcCos[ h2d * Tan[R Degree] ] - h2d * Tan[R Degree] * Sqrt[1 - (h2d*Tan[R Degree])^2])
-] (*https://link.springer.com/article/10.1007/s11214-008-9439-8*)
+] (*https://link.springer.com/article/10.1007/s11214-008-9439-8*)*)
 
 
 coll[tesselation_,healpixringxyz_,angle1_,angle2_,colPixelsDistances_]:=Module[{collCentreVector,collPixelVectors,alphas,colim1,domega,a1,a1bkg,n1,a2},
@@ -172,11 +172,14 @@ lati2colatiDeg[\[Phi]_]:= 90-\[Phi]
 lati2colatiRad[\[Phi]_]:= Pi/2-\[Phi]
 
 
-choseRing[rotationAxisAng_]:=Module[{oneRingSpare, rotationAxis, maxVisibilityRange, minVisibilityRange, deltaVisiblityRange, angLengthsFromRotAxis, visibilityRangePixels},
+choseRing[rotationAxisAng_]:=Module[{deltaPix, oneRingSpare, rotationAxis, maxVisibilityRange, minVisibilityRange, deltaVisiblityRange, angLengthsFromRotAxis, visibilityRangePixels},
 rotationAxis=makeVec[rotationAxisAng[[1]]*1. Degree,rotationAxisAng[[2]]*1. Degree];
-oneRingSpare=(Pi/(3*tesselation^2))*1.;
-maxVisibilityRange = Cos[(scanRadius-colRadius)Degree]*1.+oneRingSpare;
-minVisibilityRange=Cos[(scanRadius+colRadius)Degree]*1.-oneRingSpare;
+oneRingSpare  = Pi/(3. tesselation^2);        (* sr, Healpix pixel area *)
+deltaPix  = Sqrt[oneRingSpare/Pi];           (* rad, approximate pixel radius *)
+maxVisibilityRange =
+  Cos[(scanRadius - colRadius) Degree - deltaPix];
+minVisibilityRange =
+  Cos[(scanRadius + colRadius) Degree + deltaPix];
 visibilityRangePixels=Select[Transpose[Prepend[
 {Dot[rotationAxis,#]&/@healpixringxyz},Range[Length[healpixringxyz]]]],#[[2]]<=maxVisibilityRange&&#[[2]]>=minVisibilityRange&][[All,1]]
 ]
