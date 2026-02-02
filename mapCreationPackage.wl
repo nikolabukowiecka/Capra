@@ -9,35 +9,39 @@ ibexHi = Map[ fun`ibexDataRead[ToFileName[ibexDataDir,ibexDataName], #]&, ibexFi
 ]
 
 
-Options[run]={"smoothing"->"Gaussian"};
+Options[run] = {"smoothing" -> Null};
 
-run[ibexHi_, healpixDir_,OptionsPattern[]] := Module[{smoohting,domega, hpPath, result, mapCountsMain, mapSignalMain, mapExposuresMain, mapRatesMain, mapENAFluxMain, geometricFactorTriples,centralEnergies,geometricFactor,centralEnergy,smoothing},
-If[OptionValue["smoothing"]==="Gaussian", smoothing="Gaussian", smoothing=Null];
+run[ibexHi_, healpixDir_, OptionsPattern[]] :=
+Module[{smoothing, domega, hpPath, result, mapCountsMain, mapSignalMain, mapExposuresMain, mapRatesMain, mapENAFluxMain, geometricFactorTriples, centralEnergies, geometricFactor, centralEnergy},
+smoothing = If[OptionValue["smoothing"] === "Gaussian", "Gaussian", Null];
+
 hpPath = ToFileName[healpixDir, "testXYZ"];
 domega = Pi/(3*tesselation^2)*1.;
 init[hpPath, tesselation];
 
 AbsoluteTiming[
-result = ParallelMap[
-	Module[{orbitCount = #,exposuretime, counts, signal, backgroundRate, ibexLatitude, ibexLongitude, 
-	rotationAxisAng, visibilityRangePixels, oneOrbitMap, mapCounts, mapExposures, mapSignal},
-	
-	exposuretime = ToExpression["expE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
-	exposuretime=exposuretime*10^-3*1.; (*Conversion to seconds*)
-	counts = ToExpression["ctsE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
-	backgroundRate=ToExpression["bkgE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
-	ibexLatitude  = ToExpression["eclatE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
-	ibexLongitude = ToExpression["eclonE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
-	rotationAxisAng = {spinAxEcLon /. ibexHi[[orbitCount]], spinAxEcLat /. ibexHi[[orbitCount]]};
-	visibilityRangePixels = choseRing[rotationAxisAng];
-	Print["Loading orbit ", orbNo /. ibexHi[[orbitCount]]];
-	oneOrbitMap = calcOneOrbit[ibexLatitude, ibexLongitude, exposuretime, counts, backgroundRate, visibilityRangePixels, healpixringxyz, smoothing];
-	mapCounts = (Total[Module[{element = #}, First[Last[#]] & /@ element] & /@ oneOrbitMap]);
-	mapExposures = (Total[Module[{element = #}, Last[#][[2]] & /@ element] & /@ oneOrbitMap]);
-	mapSignal = (Total[Module[{element = #}, Last[#][[3]] & /@ element] & /@ oneOrbitMap]);
-	
-{mapCounts, mapExposures, mapSignal}] &, Range[Length[ibexHi]]
-];
+With[{sm = smoothing},
+result =
+ParallelMap[
+Module[{
+orbitCount = #, exposuretime, counts, signal, backgroundRate, ibexLatitude, ibexLongitude, rotationAxisAng, visibilityRangePixels, oneOrbitMap, mapCounts, mapExposures, mapSignal},
+exposuretime = ToExpression["expE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
+exposuretime = exposuretime*10^-3*1.; (* seconds *)
+counts = ToExpression["ctsE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
+backgroundRate = ToExpression["bkgE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
+ibexLatitude = ToExpression["eclatE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
+ibexLongitude = ToExpression["eclonE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
+rotationAxisAng = { spinAxEcLon /. ibexHi[[orbitCount]], spinAxEcLat /. ibexHi[[orbitCount]]};
+visibilityRangePixels = choseRing[rotationAxisAng];
+Print["Loading orbit ", orbNo /. ibexHi[[orbitCount]]];
+
+oneOrbitMap = calcOneOrbit[ibexLatitude, ibexLongitude, exposuretime, counts, backgroundRate,visibilityRangePixels, healpixringxyz, sm];
+mapCounts = Total[(Module[{element = #}, First[Last[#]] & /@ element] & /@ oneOrbitMap)];
+mapExposures =Total[(Module[{element = #}, Last[#][[2]] & /@ element] & /@ oneOrbitMap)];
+mapSignal = Total[(Module[{element = #}, Last[#][[3]] & /@ element] & /@ oneOrbitMap)];
+{mapCounts, mapExposures, mapSignal}] &,Range[Length[ibexHi]]
+	];
+		];	
 	mapCountsMain = Total[result[[All, 1]]];
 	mapExposuresMain = Total[result[[All, 2]]];
 	mapSignalMain = Total[result[[All, 3]]];
@@ -54,9 +58,10 @@ result = ParallelMap[
 	mapENAFluxMain = If[mapExposuresMain[[#]]==0||mapExposuresMain[[#]]===Null,Null,mapSignalMain[[#]]/(mapExposuresMain[[#]]*geometricFactor*centralEnergy)]&/@Range[Length[mapExposuresMain]];
 	mapRatesMain = (mapRatesMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
 	mapENAFluxMain = (mapENAFluxMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
-{mapCountsMain, mapExposuresMain, mapSignalMain, mapRatesMain, mapENAFluxMain}
-]
-]
+   
+   {mapCountsMain, mapExposuresMain, mapSignalMain, mapRatesMain, mapENAFluxMain}
+   ]
+  ];
 
 
 exportData[mapCountsMain_, mapExposuresMain_,mapSignalMain_,mapRatesMain_,mapENAFluxMain_,tesselation_,energyStep_,outputDir_]:=Module[{datHealpy},
