@@ -11,7 +11,7 @@ ibexHi = Map[ fun`ibexDataRead[ToFileName[ibexDataDir,ibexDataName], #]&, ibexFi
 
 Options[run]={"smoothing"->"Gaussian"};
 
-run[ibexHi_, healpixDir_,OptionsPattern[]] := Module[{domega, hpPath, result, mapCountsMain, mapSignalMain, mapExposuresMain, mapRatesMain, mapENAFluxMain, geometricFactorTriples,centralEnergies,geometricFactor,centralEnergy,smoothing},
+run[ibexHi_, healpixDir_,OptionsPattern[]] := Module[{smoohting,domega, hpPath, result, mapCountsMain, mapSignalMain, mapExposuresMain, mapRatesMain, mapENAFluxMain, geometricFactorTriples,centralEnergies,geometricFactor,centralEnergy,smoothing},
 If[OptionValue["smoothing"]==="Gaussian", smoothing="Gaussian", smoothing=Null];
 hpPath = ToFileName[healpixDir, "testXYZ"];
 domega = Pi/(3*tesselation^2)*1.;
@@ -147,7 +147,7 @@ h2d = 6.67178; (*height to deimeter ratio of the holes in the collimator*)
 ] (*https://link.springer.com/article/10.1007/s11214-008-9439-8*)*)
 
 
-coll[tesselation_,healpixringxyz_,angle1_,angle2_,colPixelsDistances_,smoothing_]:=Module[{collCentreVector,collPixelVectors,alphas,colim1,domega,a1,a1bkg,n1,a2},
+coll[tesselation_,healpixringxyz_,angle1_,angle2_,colPixelsDistances_,smoothing_]:=Module[{collResult,collCentrePix,collCentreVector,collPixelVectors,alphas,colim1,domega,a1,a1bkg,n1,a2},
 (*collCentreVector=makeVec[angle2*1. Degree,angle1*1. Degree];*)
 (*collPixelVectors=healpixringxyz[[colPixelsDistances[[;;,1]]]];*)
 (*alphas=angleVec[collCentreVector,#]&/@collPixelVectors;
@@ -155,15 +155,18 @@ colim1=collHi[colPixelsDistances[[#]][[2]]/Degree,alphas[[#]]/Degree,1]&/@Range[
 If[
 ToString[smoothing] === "Gaussian",
 colim1 = GaussianWeight[colPixelsDistances[[;;,2]],Cos[colRadius*1. Degree]];
-(*Print["Gaussian in coll"]*)
-];
-
-
 domega = Pi/(3*tesselation^2)*1.;
 colim1=colim1*domega;
 a1=Total[colim1*domega];
 n1=Total[colim1/a1];
 a2=a1*n1;
+collResult=Transpose[Append[{colPixelsDistances[[;;,1]]},(colim1/a2)]];
+,
+TrueQ[smoothing === Null],
+collCentrePix=SortBy[colPixelsDistances,Min][[1]][[1]];
+collResult={colPixelsDistances[[;;,1]],ConstantArray[0,colPixelsDistances[[;;,1]]]};
+collResult[[collResult[[;;,1]][[collCentrePix]]]][[2]]=1;
+];
 
 (*colimBkg=colimBkg*domega; (*part of the background monitor implementation*)
 colimBkg=collBkg[colPixelsDistances[[#]][[2]]]&/@Range[Length[colPixelsDistances]];
@@ -172,7 +175,7 @@ n1bkg=Total[colimBkg/a1bkg];
 a2bkg=a1bkg*n1bkg; 
 {Transpose[Append[{colPixelsDistances[[;;,1]]},(colim1/a2)]], Transpose[Append[{colPixelsDistances[[;;,1]]},(colimBkg/a2bkg)]]}*)
 
-Transpose[Append[{colPixelsDistances[[;;,1]]},(colim1/a2)]]
+collResult
 ]
 
 
@@ -219,7 +222,6 @@ nonColPixelsWithZeros=#->{0,0,0}&/@Complement[Range[Length[healpixringxyz]],colP
 
 Which[
 TrueQ[smoothing =!= Null],
-(*Print[smoothing];*)
 (*{colValues,colValuesBkg} = coll[tesselation,healpixringxyz,angle1,angle2,colPixelsDistances];*)
 colValues = coll[tesselation,healpixringxyz,angle1,angle2,colPixelsDistances,smoothing];
 (*nonColPixelsWithZeros=#->{0,0,0}&/@Complement[Range[Length[healpixringxyz]],colValues[[;;,1]]];*)
@@ -230,12 +232,13 @@ If[exposuretimeValue==0,Null, (idx[[2]]*countValue - (idx[[2]]*backgroundRateVal
 }])&,{colValues}],
 
 TrueQ[smoothing === Null], 
-(*Print[smoothing];*)
 colPixelsWithValues=MapThread[(Module[{idx=#1},
 idx[[1]]->{If[exposuretimeValue==0,Null,countValue],
  If[exposuretimeValue==0,Null,exposuretimeValue], 
 If[exposuretimeValue==0,Null, (countValue - (backgroundRateValue*exposuretimeValue))]
 }])&,{colPixelsDistances}];
 ];
+
+
 collimatorLevel=Sort[Join[nonColPixelsWithZeros,colPixelsWithValues]]
 ]&/@Range[Length[ibexLatitude]];
