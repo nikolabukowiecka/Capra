@@ -152,7 +152,7 @@ coll[tesselation_,healpixringxyz_,angle1_,angle2_,colPixelsDistances_,smoothing_
 (*collPixelVectors=healpixringxyz[[colPixelsDistances[[;;,1]]]];*)
 (*alphas=angleVec[collCentreVector,#]&/@collPixelVectors;
 colim1=collHi[colPixelsDistances[[#]][[2]]/Degree,alphas[[#]]/Degree,1]&/@Range[Length[alphas]];*)
-If[
+Which[
 ToString[smoothing] === "Gaussian",
 colim1 = GaussianWeight[colPixelsDistances[[;;,2]],Cos[colRadius*1. Degree]];
 domega = Pi/(3*tesselation^2)*1.;
@@ -164,8 +164,8 @@ collResult=Transpose[Append[{colPixelsDistances[[;;,1]]},(colim1/a2)]];
 ,
 TrueQ[smoothing === Null],
 collCentrePix=SortBy[colPixelsDistances,Min][[1]][[1]];
-collResult={colPixelsDistances[[;;,1]],ConstantArray[0,colPixelsDistances[[;;,1]]]};
-collResult[[collResult[[;;,1]][[collCentrePix]]]][[2]]=1;
+collResult=Transpose[{colPixelsDistances[[;;,1]],ConstantArray[0,Length[colPixelsDistances[[;;,1]]]]}];
+collResult[[Position[collResult[[;;,1]],collCentrePix][[1,1]]]][[2]]=1;
 ];
 
 (*colimBkg=colimBkg*domega; (*part of the background monitor implementation*)
@@ -220,24 +220,13 @@ backgroundRateValue=backgroundRate[[measurementIndex]];
 colPixelsDistances=calculateLengthsForColPixels[angle1,angle2,visibilityRangePixels];
 nonColPixelsWithZeros=#->{0,0,0}&/@Complement[Range[Length[healpixringxyz]],colPixelsDistances[[;;,1]]];
 
-Which[
-TrueQ[smoothing =!= Null],
 (*{colValues,colValuesBkg} = coll[tesselation,healpixringxyz,angle1,angle2,colPixelsDistances];*)
 colValues = coll[tesselation,healpixringxyz,angle1,angle2,colPixelsDistances,smoothing];
-(*nonColPixelsWithZeros=#->{0,0,0}&/@Complement[Range[Length[healpixringxyz]],colValues[[;;,1]]];*)
 colPixelsWithValues=MapThread[(Module[{idx=#1},
 idx[[1]]->{If[exposuretimeValue==0,Null,idx[[2]]*countValue],
  If[exposuretimeValue==0,Null,idx[[2]]*exposuretimeValue], 
 If[exposuretimeValue==0,Null, (idx[[2]]*countValue - (idx[[2]]*backgroundRateValue*exposuretimeValue))]
-}])&,{colValues}],
-
-TrueQ[smoothing === Null], 
-colPixelsWithValues=MapThread[(Module[{idx=#1},
-idx[[1]]->{If[exposuretimeValue==0,Null,countValue],
- If[exposuretimeValue==0,Null,exposuretimeValue], 
-If[exposuretimeValue==0,Null, (countValue - (backgroundRateValue*exposuretimeValue))]
-}])&,{colPixelsDistances}];
-];
+}])&,{colValues}];
 
 
 collimatorLevel=Sort[Join[nonColPixelsWithZeros,colPixelsWithValues]]
