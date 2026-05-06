@@ -33,7 +33,7 @@ ibexLatitude = ToExpression["eclatE" <> ToString[energyStep]] /. ibexHi[[orbitCo
 ibexLongitude = ToExpression["eclonE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
 rotationAxisAng = { spinAxEcLon /. ibexHi[[orbitCount]], spinAxEcLat /. ibexHi[[orbitCount]]};
 visibilityRangePixels = choseRing[rotationAxisAng];
-Print["Loading orbit ", orbNo /. ibexHi[[orbitCount]]];
+Print["Loading arc ", orbNo /. ibexHi[[orbitCount]]];
 
 oneOrbitMap = calcOneOrbit[ibexLatitude, ibexLongitude, exposuretime, counts, backgroundRate,visibilityRangePixels, healpixringxyz, sm];
 mapCounts = Total[(Module[{element = #}, First[Last[#]] & /@ element] & /@ oneOrbitMap)];
@@ -159,7 +159,8 @@ coll[tesselation_,healpixringxyz_,angle1_,angle2_,colPixelsDistances_,smoothing_
 colim1=collHi[colPixelsDistances[[#]][[2]]/Degree,alphas[[#]]/Degree,1]&/@Range[Length[alphas]];*)
 Which[
 ToString[smoothing] === "Gaussian",
-colim1 = GaussianWeight[colPixelsDistances[[;;,2]],Cos[colRadius*1. Degree]];
+(*colim1 = GaussianWeight[colPixelsDistances[[;;,2]],Cos[colRadius*1. Degree]];*)
+colim1 = GaussianWeight[colPixelsDistances[[;;,2]],colRadius Degree];
 domega = Pi/(3*tesselation^2)*1.;
 colim1=colim1*domega;
 a1=Total[colim1*domega];

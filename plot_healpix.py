@@ -10,7 +10,7 @@ NSIDE = int(input())
 print('Energy step = ')
 estep = int(input())
 
-print('What do you want to observe? HEALPix original: 1 - counts, 2 - exposure time, 3 - signal, 4 - signal intensity, 5 - ENAflux')
+print('What do you want to observe? HEALPix original: 1 - counts, 2 - exposure time, 3 - signal, 4 - signal rate, 5 - ENAflux')
 obs = int(input())
 
 print('What do you want to observe coordinate system do you want (gal, ecl, rib, np, nose)?')
@@ -19,7 +19,7 @@ coordsys = input()
 print('Type filename, exe: data_t64_6Null.txt?')
 dat = input()
 
-dataname = os.path.join(os.path.join(os.getcwd(), "output"), f"{dat}")
+dataname = os.path.join(os.path.join(os.getcwd(), "output/Gaussian"), f"{dat}")
 
 X = pd.read_csv(dataname, sep="\t", header=None)
 
@@ -49,7 +49,7 @@ if coordsys == 'gal':
     lon_nose, lat_nose = 255.7, 5.1  # ecliptic deg
 
     hp.mollview(
-        m,
+        np.log10(m),
         coord=['E','G'],        # rotate map to Galactic
         title=f"Capra, $E_{estep}$, $N_{{side}}={NSIDE}$. Galactic frame.",
         #unit="Flux [counts s$^{-1}$ sr$^{-1}$]",
@@ -58,8 +58,8 @@ if coordsys == 'gal':
         flip='geo',
         notext=True,
         xsize=1600,
-        fig=fig#,
-        #min=-0.7,max=0.7 #for GDF
+        fig=fig,
+        min=-0.7,max=0.7 #for GDF
     )
     hp.graticule(dpar=30, dmer=30, color='white', linestyle='--', linewidth=0.8)
 
@@ -134,14 +134,24 @@ if coordsys == 'nose':
                 title=f"Capra, $E_{estep}$, $N_{{side}}={NSIDE}$. Nose-centered ecliptic frame.",
                 #title=f"Theseus - HP, $E_{estep}$, $N_{{side}}={NSIDE}$. Nose-centered ecliptic frame.",
                 #unit="Flux [counts s$^{-1}$ sr$^{-1}$]",
-                unit = "$\log_{10}(\mathrm{Flux})\ [\mathrm{dimensionless}]$",
-                #unit = "$\log_{10}(\mathrm{FluxGDF})\ [\mathrm{dimensionless}]$",
+                #unit="$\log_{10}(\mathrm{Rates})\ $",
+                #unit = "$\log_{10}(\mathrm{Flux})\ [\mathrm{dimensionless}]$",
+                unit = "$\log_{10}(\mathrm{FluxGDF})\ [\mathrm{dimensionless}]$",
                 cmap='jet', xsize=1600,
-                min=1,max=1.6)
-                #min=-0.3,max=0.3) #for relative flux
-                #min=-0.2,max=0.8) #for GDF
-                #min=-0.7,max=0.7) #for GD
 
+                #for ESA4
+                #min=-1,max=1) #counts
+                #min=0.1,max=2.2) #exp
+                #min=-1.5,max=1) #signal
+                #min=-1.5,max=-0.8) #rates
+                #min=0.9,max=1.9) #fluxes
+
+                #good in general
+                #min=-0.3,max=0.3) #for relative flux
+                min=-0.7,max=0.7) #for GDF flux
+    data = np.clip(m_nose, 1e-6, None)
+    print(np.min(data[~np.isnan(data)]))
+    print(np.max(data[~np.isnan(data)]))
     hp.graticule(dpar=30, dmer=30, color='white', linestyle='--', alpha=0.7)
 
     hp.projscatter(0, 0, lonlat=True, color='black', s=120)
@@ -204,7 +214,7 @@ if coordsys == 'rib':
     hp.mollview(np.log10(np.clip(m,1e-6,None)),
                 coord='E', rot=(lon_rib, lat_rib, 0), #flip='geo',
                 title=f"Capra, $E_{estep}$, $N_{{side}}={NSIDE}$. Ribbon-centered ecliptic frame",
-                unit="$\log_{10}(\mathrm{FluxGDF})\ [\mathrm{dimensionless}]$", cmap='jet', min=-0.6, max=0.4)
+                unit="$\log_{10}(\mathrm{FluxGDF})\ [\mathrm{dimensionless}]$", cmap='jet', min=-0.7, max=0.7)
     hp.graticule(dpar=30, dmer=30, color='white', linestyle='--', linewidth=0.8, alpha=0.6)
 
     # markers (give ecliptic coords; mollview applies same rot)

@@ -1,42 +1,66 @@
 (* ::Package:: *)
 
-normalizeRelative[data_, tesselation_, energyStep_] :=
-Module[{\[CapitalOmega], w, dataMasked, validMask, meanFluxW, rel, dat},
-\[CapitalOmega] = Pi/(3 tesselation^2);
-w = ConstantArray[\[CapitalOmega], Length[data]];
-dataMasked = data /. Null -> Missing["NoData"];
-validMask = NumericQ /@ dataMasked;
+exposureWeightedGlobalFlux[fluxMap_, expMap_] :=
+ Module[{flux, exp, valid},
+  flux = Flatten[fluxMap];
+  exp = Flatten[expMap];
 
-(*Weighted mean using valid pixels only *)
-meanFluxW =
-Total[ Pick[dataMasked * w, validMask] ]/
-Total[ Pick[w, validMask] ];
+  valid =
+   MapThread[
+    NumericQ[#1] && NumericQ[#2] && #2 > 0 &,
+    {flux, exp}
+   ];
 
-(*Relative flux *)
-rel = dataMasked/meanFluxW;
-
-(*Missing back to Null for output*)
-rel = rel /. Missing["NoData"] -> Null;
-
-(*Diagnostic: mean should be about 1 *)
-validMask = Map[NumericQ, rel];
-Print["Weighted mean (should be 1): ", Total@Pick[rel*w, validMask] / Total@Pick[w, validMask]];
-
-rel=rel/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a,Plus[a_?NumericQ,Null]:>a};
-
-dat = ExportString[Transpose[{Range[Length[rel]], rel}],"Table"];
-Export[ToFileName[outputDir] <>"data_normalizedRelative_t" <> ToString[tesselation] <>"_" <> ToString[energyStep] <> ".txt",dat];
-rel
+  Total[Pick[flux*exp, valid, True]]/
+   Total[Pick[exp, valid, True]]
 ]
 
 
-normalizeGDF[data_, dataExposure_, tesselation_, energyStep_] :=
-Module[{\[CapitalOmega], fluxMasked, expMasked, flux, exp,
+circularMeanDeg[x_List]:=Module[{ang,s,c,a},ang=N[x] Degree;
+s=Mean[Sin[ang]];
+c=Mean[Cos[ang]];
+a=Mod[ArcTan[c,s]/Degree,360];
+a]
+
+
+gdfNormalizeGrid[mapFluxGrid_,mapExpGrid_,offMaskGrid_,label_:""]:=Module[{fluxFlat,expFlat,maskFlat,valid,selector,offFlux,offExp,baseline,mapGDF,diagMedian,diagMean,diagWeightedMean},fluxFlat=Flatten[mapFluxGrid];
+expFlat=Flatten[mapExpGrid];
+maskFlat=Flatten[offMaskGrid];
+valid=MapThread[NumericQ[#1]&&NumericQ[#2]&&#2>0&,{fluxFlat,expFlat}];
+selector=MapThread[And,{maskFlat,valid}];
+offFlux=Pick[fluxFlat,selector,True];
+offExp=Pick[expFlat,selector,True];
+If[offFlux==={}||offExp==={}||Total[offExp]==0,Print[label," GDF baseline failed: no valid off-ribbon exposed samples."];
+Return[$Failed];];
+baseline=weightedMedian[offFlux,offExp];
+mapGDF=mapFluxGrid/baseline;
+mapGDF=mapGDF/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a,Plus[a_?NumericQ,Null]:>a,ComplexInfinity->Null,Indeterminate->Null};
+diagMedian=weightedMedian[offFlux/baseline,offExp];
+diagMean=Mean[offFlux/baseline];
+diagWeightedMean=Total[(offFlux/baseline)*offExp]/Total[offExp];
+Print[label," GDF baseline = ",N[baseline]];
+Print[label," off-ribbon exposure-weighted median after GDF = ",N[diagMedian]];
+Print["Means don't need to be 1. GDF is median normalized"];
+Print[label," off-ribbon unweighted mean after GDF = ",N[diagMean]];
+Print[label," off-ribbon exposure-weighted mean after GDF (should be 1) = ",N[diagWeightedMean]];
+Print[label," off-ribbon samples used = ",Length[offFlux]];
+mapGDF]
+
+
+Options[normalizeGDF] = Join[
+  Options[calcOffMask],
+  {
+   "PrintDiagnostics" -> True
+  }
+];
+
+normalizeGDF[data_, dataExposure_, tesselation_, energyStep_, OptionsPattern[]] :=
+Module[{fluxMasked, expMasked, flux, exp,
 offMask1D, offMask, valid, selector,
 gdfSample, expSample, baseline, usedWeights,
-relFluxGDF, offRelMean, ribbonPeak, allSkyMean},
+relFluxGDF, offRelMean, ribbonPeak, allSkyMean,
+offRel, offExp, offRelMedian, offRelWeightedMean},
 
-\[CapitalOmega] = Pi/(3 tesselation^2);
 fluxMasked = Flatten[data] /. Null -> Missing["NoData"];
 expMasked  = Flatten[dataExposure] /. Null -> Missing["NoData"];
 
@@ -44,7 +68,17 @@ flux = fluxMasked;
 exp  = expMasked;
 
 (*Off-ribbon mask *)
-offMask1D = calcOffMask[data, dataExposure];
+offMask1D =
+   calcOffMask[
+    data,
+    dataExposure,
+    "PsiCut" -> OptionValue["PsiCut"],
+    "NoseTailCut" -> OptionValue["NoseTailCut"],
+    "FluxPercentile" -> OptionValue["FluxPercentile"],
+    "RibbonFitPercentile" -> OptionValue["RibbonFitPercentile"],
+    "NoseLon" -> OptionValue["NoseLon"],
+    "NoseLat" -> OptionValue["NoseLat"]
+   ];
 
 (* Trim in case of tiny length mismatches *)
 offMask =
@@ -74,150 +108,306 @@ usedWeights = True
 relFluxGDF = fluxMasked / baseline;
 relFluxGDF = relFluxGDF /. Missing["NoData"] -> Null;
 
-(* Diagnostics *)
 allSkyMean = Mean@Select[flux, NumericQ];
-offRelMean = Mean@Pick[relFluxGDF, selector, True];
 ribbonPeak = Max@Select[relFluxGDF, NumericQ];
 
-Print["Baseline method: ", If[usedWeights, "Exposure-weighted median", "Simple median"]];
-Print["Baseline value = ", baseline];
-Print["GDF / all-sky mean = ", baseline/allSkyMean];
-Print["Off-ribbon samples used = ", Length[gdfSample]];
-Print["Off-ribbon mean (should be ~1) = ", offRelMean];
-Print["Ribbon peak = ", ribbonPeak];
+(* Diagnostics *)
+offRel = Pick[relFluxGDF, selector, True];
+  offExp = Pick[exp, selector, True];
 
-relFluxGDF
+  offRelMedian =
+   If[usedWeights,
+    weightedMedian[offRel, offExp],
+    Median[offRel]
+   ];
+
+  offRelMean = Mean[offRel];
+
+  offRelWeightedMean =
+   If[usedWeights,
+    Total[offRel*offExp]/Total[offExp],
+    Missing["NoWeights"]
+   ];
+
+  If[TrueQ[OptionValue["PrintDiagnostics"]],
+   Print["Baseline method: ",
+    If[usedWeights, "Exposure-weighted median", "Simple median"]];
+   Print["Baseline value = ", N[baseline]];
+   Print[
+    "Off-ribbon exposure-weighted median after GDF (should be 1) = ",
+    N[offRelMedian]
+   ];
+   Print["Means don't need to be 1. GDF is median normalized"];
+   Print["Off-ribbon unweighted mean after GDF = ", N[offRelMean]];
+   Print[
+    "Off-ribbon exposure-weighted mean after GDF = ",
+    N[offRelWeightedMean]
+   ];
+   Print["GDF / all-sky mean = ", N[baseline/allSkyMean]];
+   Print["Off-ribbon samples used = ", Length[gdfSample]];
+   Print["Ribbon peak = ", N[ribbonPeak]];
+  ];
+
+  relFluxGDF
 ]
 
 
-calcOffMaskGrid[data_, lonGrid_, latGrid_] := 
- Module[{flux, lon, lat, toRad, vec, R, q85, ribbonCandIdx, Rr, cov, vals, vecs, nHat, delPsi, lonNose, latNose, noseVec, tailVec, noseAng, tailAng,
-noseMask, tailMask, psiCut, offRibbonArc, qhi, fluxGate, gt, le, pos, isnum, masks, offMask},
+Options[calcOffMaskGrid] = {
+  "PsiCut" -> 45.,
+  "NoseTailCut" -> 30.,
+  "FluxPercentile" -> .70,
+  "RibbonFitPercentile" -> .85,
+  "NoseLon" -> 255.7,
+  "NoseLat" -> 5.1
+};
 
-flux = Flatten@data;         
-lon  = Flatten@lonGrid;    
-lat  = Flatten@latGrid; 
+calcOffMaskGrid[data_, lonGrid_, latGrid_, OptionsPattern[]] :=
+ Module[
+  {
+   flux, lon, lat,
+   psiCut, noseTailCut, fluxPercentile, ribbonFitPercentile,
+   lonNose, latNose,
+   toRad, vec, R,
+   validFlux, validForFit,
+   qRibbon, ribbonCandIdx, Rr, cov, vals, vecs, nHat,
+   delPsi, noseVec, tailVec, noseAng, tailAng,
+   offRibbonArc, noseMask, tailMask,
+   qFlux, fluxGate, masks, offMaskFlat,
+   nRows, nCols
+  },
 
-toRad[x_] := x Degree;
-vec[la_, be_] := Module[{th = toRad[90 - be], ph = toRad[la]}, {Sin[th] Cos[ph], Sin[th] Sin[ph], Cos[th]}];
+  flux = Flatten[data];
+  lon = Flatten[lonGrid];
+  lat = Flatten[latGrid];
 
+  nRows = Length[latGrid];
+  nCols = Length[latGrid[[1]]];
+
+  psiCut = OptionValue["PsiCut"];
+  noseTailCut = OptionValue["NoseTailCut"];
+  fluxPercentile = OptionValue["FluxPercentile"];
+  ribbonFitPercentile = OptionValue["RibbonFitPercentile"];
+  lonNose = OptionValue["NoseLon"];
+  latNose = OptionValue["NoseLat"];
+
+  toRad[x_] := x Degree;
+
+  vec[la_, be_] :=
+   Module[{th = toRad[90 - be], ph = toRad[la]},
+    {Sin[th] Cos[ph], Sin[th] Sin[ph], Cos[th]}
+   ];
+
+  If[! SameQ[Length /@ {flux, lon, lat}],
+   Print["Length mismatch in calcOffMaskGrid: ",
+    Length /@ {flux, lon, lat}];
+   Abort[];
+  ];
 (* Unit look vectors*)
-R = MapThread[vec, {lon, lat}];
+  R = MapThread[vec, {lon, lat}];
 
-(*Bright ribbon pixels for great-circle fit *)
-q85 = Quantile[Select[flux, NumericQ], .85];
-ribbonCandIdx = Flatten@Position[flux, _?(NumericQ[#] && # >= q85 &)];
-Rr = R[[ribbonCandIdx]];
+  validFlux = Map[NumericQ, flux];
+  validForFit = Pick[flux, validFlux, True];
 
+  If[validForFit === {},
+   Print["calcOffMaskGrid failed: no numeric flux values."];
+   Abort[];
+  ];
+
+  (* Fit ribbon great circle using bright valid pixels. *)
+  qRibbon = Quantile[validForFit, ribbonFitPercentile];
+
+  ribbonCandIdx =
+   Flatten@Position[
+     flux,
+     _?(NumericQ[#] && # >= qRibbon &)
+   ];
+
+  If[Length[ribbonCandIdx] < 3,
+   Print["calcOffMaskGrid failed: too few ribbon-candidate pixels."];
+   Abort[];
+  ];
+
+  Rr = R[[ribbonCandIdx]];
 (* Great-circle pole -> smallest-variance direction *)
-cov  = N@Covariance[Rr];
-{vals, vecs} = Eigensystem[cov];
-nHat = Normalize@vecs[[-1]];
+  cov = N@Covariance[Rr];
+  {vals, vecs} = Eigensystem[cov];
+  nHat = Normalize[vecs[[-1]]];
 (* Angular distance from ribbon great circle *)
-delPsi = N@(ArcSin[Abs[R . nHat]] / Degree);
+  delPsi = N@(ArcSin[Abs[R . nHat]]/Degree);
 
-(* Nose / tail exclusions *)
-lonNose = 255.7; latNose = 5.1;
-noseVec = vec[lonNose, latNose];
-tailVec = -noseVec;
-noseAng = N@(ArcCos[Clip[R . noseVec, {-1, 1}]] / Degree);
-tailAng = N@(ArcCos[Clip[R . tailVec, {-1, 1}]] / Degree);
-noseMask = noseAng > 30;
-tailMask = tailAng > 30;
-(* Off-ribbon arc *)
-psiCut = 45.;(* degrees from fitted ribbon arc *)
-offRibbonArc = delPsi > psiCut;
-(*Robust flux gating*)
-qhi = Quantile[Select[flux, NumericQ], .70];
-fluxGate = flux <= qhi;
+  noseVec = vec[lonNose, latNose];
+  tailVec = -noseVec;
 
-gt[v_, t_] := Map[TrueQ, Thread[v > t]];
-le[v_, t_] := Map[TrueQ, Thread[v <= t]];
-pos[v_]    := Map[TrueQ, Thread[v > 0]];
-isnum[v_]  := Map[TrueQ @* NumericQ, v];
+  noseAng = N@(ArcCos[Clip[R . noseVec, {-1, 1}]]/Degree);
+  tailAng = N@(ArcCos[Clip[R . tailVec, {-1, 1}]]/Degree);
 
-(* mask *)
-offRibbonArc = gt[delPsi, psiCut];
-noseMask     = gt[noseAng, 30];
-tailMask     = gt[tailAng, 30];
-validQ       = isnum[flux];
-fluxGate     = le[flux, qhi];
-masks = {offRibbonArc, noseMask, tailMask, validQ, fluxGate};
-If[ !And @@ (VectorQ[#, BooleanQ] & /@ masks) || 
-Not@SameQ @@ (Length /@ masks),
-Print["Mask shape/type mismatch"]; Abort[]
-];
-offMask = MapThread[And, masks];
-Partition[offMask, Length[latGrid[[1]]]]
+  offRibbonArc = Map[TrueQ[# > psiCut] &, delPsi];
+  noseMask = Map[TrueQ[# > noseTailCut] &, noseAng];
+  tailMask = Map[TrueQ[# > noseTailCut] &, tailAng];
+
+  qFlux = Quantile[validForFit, fluxPercentile];
+
+  fluxGate =
+   Map[
+    If[NumericQ[#], TrueQ[# <= qFlux], False] &,
+    flux
+   ];
+
+  masks = {
+    offRibbonArc,
+    noseMask,
+    tailMask,
+    validFlux,
+    fluxGate
+  };
+
+  If[
+   ! And @@ (VectorQ[#, BooleanQ] & /@ masks) ||
+    Not@SameQ @@ (Length /@ masks),
+   Print[
+    "Mask shape/type mismatch in calcOffMaskGrid: heads = ",
+    Head /@ masks,
+    " lengths = ",
+    Length /@ masks
+   ];
+   Abort[];
+  ];
+
+  offMaskFlat = MapThread[And, masks];
+
+  Partition[offMaskFlat, nCols]
 ]
 
 
-calcOffMask[data_,dataExposure_]:=Module[{flux,coordinates,lon,lat,validQ,expoQ,toRad,vec,R,q85,lonNose,latNose,ribbonCandIdx,Rr,cov,vals,vecs,nHat,delPsi,noseVec,tailVec,noseAng,tailAng,noseMask,tailMask,psiCut,offRibbonArc,qhi,fluxGate,gt,le,pos,isnum,masks,offMask},
-flux=Flatten@data; 
-coordinates=getHPcoord[healpixringxyz];
-lon=Flatten@coordinates[[;;,2]]; 
-lat=Flatten@coordinates[[;;,1]];
-validQ=NumericQ/@flux; 
-expoQ=(Flatten@dataExposure)>0;
+Options[calcOffMask] = {
+  "PsiCut" -> 45.,
+  "NoseTailCut" -> 30.,
+  "FluxPercentile" -> .70,
+  "RibbonFitPercentile" -> .85,
+  "NoseLon" -> 255.7,
+  "NoseLat" -> 5.1
+};
 
-toRad[x_]:=x Degree;
-vec[la_,be_]:=Module[{th=toRad[90-be],ph=toRad[la]},{Sin[th] Cos[ph],Sin[th] Sin[ph],Cos[th]}];
+calcOffMask[data_, dataExposure_, OptionsPattern[]] :=
+ Module[
+  {
+   flux, exp, coordinates, lon, lat,
+   psiCut, noseTailCut, fluxPercentile, ribbonFitPercentile,
+   lonNose, latNose,
+   toRad, vec, R,
+   validFlux, validExp, validForFit,
+   qRibbon, ribbonCandIdx, Rr, cov, vals, vecs, nHat,
+   delPsi, noseVec, tailVec, noseAng, tailAng,
+   offRibbonArc, noseMask, tailMask,
+   qFlux, fluxGate, masks, offMask
+  },
+
+  flux = Flatten[data];
+  exp = Flatten[dataExposure] /. Null -> 0 /. Missing[_] -> 0;
+
+  coordinates = getHPcoord[healpixringxyz];
+  lon = Flatten[coordinates[[All, 2]]];
+  lat = Flatten[coordinates[[All, 1]]];
+
+  psiCut = OptionValue["PsiCut"];
+  noseTailCut = OptionValue["NoseTailCut"];
+  fluxPercentile = OptionValue["FluxPercentile"];
+  ribbonFitPercentile = OptionValue["RibbonFitPercentile"];
+  lonNose = OptionValue["NoseLon"];
+  latNose = OptionValue["NoseLat"];
+
+  toRad[x_] := x Degree;
+
+  vec[la_, be_] :=
+   Module[{th = toRad[90 - be], ph = toRad[la]},
+    {Sin[th] Cos[ph], Sin[th] Sin[ph], Cos[th]}
+   ];
+
 
 (*Unit look vectors*)
-R=MapThread[vec,{lon,lat}];
+  R = MapThread[vec, {lon, lat}];
+
+  validFlux = Map[NumericQ, flux];
+  validExp = Map[TrueQ[# > 0] &, exp];
+
+  If[! SameQ[Length /@ {flux, exp, lon, lat, R}],
+   Print["Length mismatch in calcOffMask: ",
+    Length /@ {flux, exp, lon, lat, R}];
+   Abort[];
+  ];
+
+  (* Fit ribbon great circle using bright valid pixels. *)
+  validForFit = Pick[flux, validFlux, True];
+
+  If[validForFit === {},
+   Print["calcOffMask failed: no numeric flux values."];
+   Abort[];
+  ];
 
 (*bright candidates for the ribbon circle pole*)
-q85=Quantile[Select[flux,NumericQ],.85];
-ribbonCandIdx=Flatten@Position[flux,_?(NumericQ[#]&&#>=q85&)];
-Rr=R[[ribbonCandIdx]];
+  qRibbon = Quantile[validForFit, ribbonFitPercentile];
 
-cov=N@Covariance[Rr];
-{vals,vecs}=Eigensystem[cov];
-nHat=Normalize@vecs[[-1]];   (*eigenvector with smallest eigenvalue*)
+  ribbonCandIdx =
+   Flatten@Position[
+     flux,
+     _?(NumericQ[#] && # >= qRibbon &)
+   ];
+
+  If[Length[ribbonCandIdx] < 3,
+   Print["calcOffMask failed: too few ribbon-candidate pixels."];
+   Abort[];
+  ];
+
+  Rr = R[[ribbonCandIdx]];
+
+  cov = N@Covariance[Rr];
+  {vals, vecs} = Eigensystem[cov];
+  nHat = Normalize[vecs[[-1]]]; (*eigenvector with smallest eigenvalue*)
 
 (*Angular distance from great circle*)
-delPsi=N@(ArcSin[Abs[R . nHat]]/Degree);
-
+  delPsi = N@(ArcSin[Abs[R . nHat]]/Degree); 
 (*Optional nose/tail exclusions*)
-lonNose=255.7;latNose=5.1;
-noseVec=vec[lonNose,latNose];
-tailVec=-noseVec;
-noseAng=N@(ArcCos[Clip[R . noseVec,{-1,1}]]/Degree);
-tailAng=N@(ArcCos[Clip[R . tailVec,{-1,1}]]/Degree);
-noseMask=noseAng>30; (*exclude within 30deg of nose*)
-tailMask=tailAng>30; (*exclude within 30deg of tail*)
+  noseVec = vec[lonNose, latNose];
+  tailVec = -noseVec;
 
+  noseAng = N@(ArcCos[Clip[R . noseVec, {-1, 1}]]/Degree);
+  tailAng = N@(ArcCos[Clip[R . tailVec, {-1, 1}]]/Degree);
 (*Off-ribbon mask by distance from ribbon*arc**)
-psiCut=45.;
-offRibbonArc=delPsi>psiCut;
+  offRibbonArc = Map[TrueQ[# > psiCut] &, delPsi];
+  noseMask = Map[TrueQ[# > noseTailCut] &, noseAng]; (*exclude within  x deg of nose*)
+  tailMask = Map[TrueQ[# > noseTailCut] &, tailAng];
+ (*suppress bright tails in GDF*)
+  qFlux = Quantile[validForFit, fluxPercentile];
+  fluxGate =
+   Map[
+    If[NumericQ[#], TrueQ[# <= qFlux], False] &,
+    flux
+   ];
 
-(*gating to suppress residual structures in "background"*)
-qhi=Quantile[Select[flux,NumericQ],.80];
-fluxGate=flux<=qhi;
+  masks = {
+    offRibbonArc,
+    noseMask,
+    tailMask,
+    validFlux,
+    validExp,
+    fluxGate
+  };
 
+  If[
+   ! And @@ (VectorQ[#, BooleanQ] & /@ masks) ||
+    Not@SameQ @@ (Length /@ masks),
+   Print[
+    "Mask shape/type mismatch in calcOffMask: heads = ",
+    Head /@ masks,
+    " lengths = ",
+    Length /@ masks
+   ];
+   Abort[];
+  ];
 
-gt[v_,t_]:=Map[TrueQ,Thread[v>t]];
-le[v_,t_]:=Map[TrueQ,Thread[v<=t]];
-pos[v_]:=Map[TrueQ,Thread[v>0]]; 
-isnum[v_]:=Map[TrueQ@*NumericQ,v];
+  offMask = MapThread[And, masks];
 
-
-psiCut=45.;
-offRibbonArc=gt[delPsi,psiCut];
-noseMask=gt[noseAng,30.];
-tailMask=gt[tailAng,30.];
-validQ=isnum[flux];                               
-expoQ=pos[dataExposure/. Null->0/. Missing[_]->0];
-
-qhi=Quantile[Select[flux,NumericQ],.70];
-fluxGate=le[flux,qhi]; (*suppress bright tails in GDF*)
-
-(*Sanity:same length+Boolean*)
-masks={offRibbonArc,noseMask,tailMask,validQ,expoQ,fluxGate};
-If[!And@@(VectorQ[#,BooleanQ]&/@masks)||Not@SameQ@@(Length/@masks),Print["Mask shape/type mismatch:"," heads=",Head/@masks," lengths=",Length/@masks];
-Abort[]];
-
-offMask=MapThread[And,masks]
+  offMask
 ]
 
 
@@ -241,50 +431,162 @@ y - is the flux F_i
 So it finds the first flux value where the cumulative exposure reaches 50% of the total - i.e. the wighted meadian sESA*)
 
 
-Options[makeGridFromBinnedDataWeighted]={"Normalize"->"relative",(*"relative" or "none"*)
-"Op"->"mean",(*"mean" for flux/rates;"sum" for exposure*)
-"Tag"->"ibex"              (*or "theseus" for filenames*)};
+Options[makeGridFromBinnedDataWeighted] = {
+   (*"Normalize" -> "relative",   (* "relative" or "none" *)*)
+   "Op" -> "mean",              (* "mean" for flux/rates; "sum" for exposure, "exposureWeightedMean" for flux reconstructed from counts/exp *)
+   "Tag" -> "ibex",
+   "SourceDTheta" -> 6.,        (* source-bin size in colat, deg *)
+   "SourceDPhi" -> 6.,          (* source-bin size in lon, deg *)
+   "PrintDiagnostics" -> True
+};
 
-makeGridFromBinnedDataWeighted[colatitudes_,longitudes_,data_,energyStep_,outputDir_,resolution_,OptionsPattern[]]:=Module[{vals,lats,lons,valid,nRows,nCols,dtheta,dphi,thetaCenters,weights,weightAssoc,rowIdx,colIdx,pairs,rules,assoc,mapGrid,areaSum,fourPiCheck,sanity,dat,mapOut,op,norm,tag,sanityPost,mapWeighted},
-op=OptionValue["Op"];(*"mean"|"sum"*)
-norm=OptionValue["Normalize"];(*"relative"|"none"*)
-tag=OptionValue["Tag"];(*Flatten consistently*)
-lats=Flatten[colatitudes]//N;
-lons=Flatten[longitudes]//N;
-vals=Flatten[data]//N;
-valid=MapThread[NumericQ[#1]&&NumericQ[#2]&&NumericQ[#3]&,{lats,lons,vals}];
-lats=Pick[lats,valid,True];
-lons=Pick[lons,valid,True];
-vals=Pick[vals,valid,True];
-nRows=resolution[[1]];
-nCols=resolution[[2]];
-dtheta=180./nRows;dphi=360./nCols;
-thetaCenters=Range[dtheta/2,180-dtheta/2,dtheta];
-(*cell solid-angle weights (for diagnostics/relative normalization)*)
-weights=Table[Sin[thetaCenters[[r]] Degree]*dtheta Degree*dphi Degree,{r,nRows},{c,nCols}];
-weightAssoc=Association@Table[{r,c}->weights[[r,c]],{r,nRows},{c,nCols}];
-(*Assign samples to cells*)rowIdx=Clip[Floor[(lats-1)/(180/nRows)+1],{1,nRows}];
-colIdx=Clip[Floor[(lons-1)/(360/nCols)+1],{1,nCols}];
-(*Build {row,col}->list of values*)pairs=Transpose[{rowIdx,colIdx,vals}];
-rules=MapThread[Rule,{pairs[[All,{1,2}]],pairs[[All,3]]}];
-assoc=GroupBy[rules,First->Last];
-(*Cell aggregation:mean for flux/rates,sum for exposure*)
-mapGrid=Table[With[{cellVals=Lookup[assoc,Key[{r,c}],{}]},Which[Length[cellVals]==0,Null,op==="sum",Total[cellVals],True,Mean[cellVals]  (*default=mean*)]],{r,1,nRows},{c,1,nCols}];
-(*Diagnostics (only meaningful for flux/rate maps)*)
-areaSum=Total[Flatten[weights]];
-fourPiCheck=areaSum/(4 Pi);
-sanity=(Total[Flatten[((mapGrid/. Null->0)*weights)]]/areaSum);
-Print["Check area sum (sr): ",N[areaSum]];
-Print["4\[Pi] normalization check: ",N[fourPiCheck]];
-Print["Sanity check (global weighted mean): ",N[sanity]];
-(*Optional relative normalization (for Part 1)*)
-mapOut=If[norm==="relative"&&op=!="sum",mapWeighted=mapGrid/sanity;sanityPost=(Total[Flatten[(mapWeighted/. Null->0)*weights]]/areaSum);
-Print["Sanity check (global weighted mean, post-normalization): ",N[sanityPost]];mapWeighted,(*make mean=1 relative map for flux/rates*) mapGrid 
- (*keep physical scale (flux) or totals (exposure)*)];
-(*Export*)
-(*dat=ExportString[mapOut/. {(_?NumericQ) Null->Null},"Table"];
-Export[ToFileName[outputDir]<>If[tag==="theseus","theseus","normalizedIB"]<>"_"<>If[norm==="relative","relFlux_","phys_"]<>ToString[energyStep]<>"_"<>ToString[resolution[[1]]]<>"_"<>ToString[resolution[[2]]]<>".txt",dat];*)
-mapOut];
+binSolidAngle[thetaCenter_, dtheta_, dphi_] :=
+ Module[{th1, th2},
+  th1 = Max[0., thetaCenter - dtheta/2] Degree;
+  th2 = Min[180., thetaCenter + dtheta/2] Degree;
+  dphi Degree * (Cos[th1] - Cos[th2])
+ ];
+
+makeGridFromBinnedDataWeighted[
+   colatitudes_, longitudes_, data_, energyStep_, outputDir_, resolution_,
+   OptionsPattern[]
+] :=
+ Module[
+  {
+   validMaskIn, observedArea, vals, lats, lons, valid,
+   nRows, nCols, dthetaT, dphiT, thetaCentersT,
+   targetWeights, rowIdx, colIdx,
+   op, norm, tag, dthetaS, dphiS,
+   srcWeights, records, assoc,
+   mapGrid, assignedAreaGrid, validMask,
+   nativeMean, remapMeanSource, remapMeanPainted,
+   mapOut, sanityPost, areaSum, fourPiCheck, den1, den2
+  },
+
+  op = OptionValue["Op"];
+  (*norm = OptionValue["Normalize"];*)
+  tag = OptionValue["Tag"];
+  dthetaS = OptionValue["SourceDTheta"];
+  dphiS = OptionValue["SourceDPhi"];
+
+  (* Flatten inputs *)
+  lats = Flatten[colatitudes] // N;
+  lons = Flatten[longitudes] // N;
+  vals = Flatten[data] // N;
+
+  valid = MapThread[
+    NumericQ[#1] && NumericQ[#2] && NumericQ[#3] &,
+    {lats, lons, vals}
+  ];
+
+  lats = Pick[lats, valid, True];
+  lons = Pick[lons, valid, True];
+  vals = Pick[vals, valid, True];
+
+  nRows = resolution[[1]];
+  nCols = resolution[[2]];
+
+  (* target-grid geometry *)
+  dthetaT = 180./nRows;
+  dphiT = 360./nCols;
+  thetaCentersT = Range[dthetaT/2, 180 - dthetaT/2, dthetaT];
+
+  targetWeights = Table[
+    Sin[thetaCentersT[[r]] Degree] * dthetaT Degree * dphiT Degree,
+    {r, nRows}, {c, nCols}
+  ];
+
+  (* source-bin solid angles *)
+  srcWeights = binSolidAngle[#, dthetaS, dphiS] & /@ lats;
+
+  (* assign source bins to target cells *)
+  rowIdx = Clip[Floor[(lats - 1)/(180./nRows) + 1], {1, nRows}];
+  colIdx = Clip[Floor[(lons - 1)/(360./nCols) + 1], {1, nCols}];
+
+  (* records = {row, col, value, sourceArea} *)
+  records = Transpose[{rowIdx, colIdx, vals, srcWeights}];
+
+  (* group records by target cell *)
+  assoc = GroupBy[records, #[[1 ;; 2]] &];
+
+  (* aggregate per cell *)
+  mapGrid = Table[
+    With[{cell = Lookup[assoc, Key[{r, c}], {}]},
+      Which[
+        cell === {}, Null,
+        op === "sum",
+          Total[cell[[All, 3]]],
+        True,
+          Total[cell[[All, 3]]*cell[[All, 4]]] / Total[cell[[All, 4]]]
+      ]
+    ],
+    {r, 1, nRows}, {c, 1, nCols}
+  ];
+
+  (* total source area assigned into each target cell *)
+  assignedAreaGrid = Table[
+    With[{cell = Lookup[assoc, Key[{r, c}], {}]},
+      If[cell === {}, 0., Total[cell[[All, 4]]]]
+    ],
+    {r, 1, nRows}, {c, 1, nCols}
+  ];
+
+  areaSum = Total[Flatten[targetWeights]];
+  fourPiCheck = areaSum/(4 Pi);
+
+  validMask = Map[NumericQ, mapGrid, {2}];
+  observedArea = Total[
+    Pick[Flatten[targetWeights], Flatten[validMask], True]
+  ];
+
+  (* source-conserved native mean *)
+  nativeMean = Total[vals*srcWeights]/Total[srcWeights];
+
+  (* source-conserved remap mean: should match nativeMean *)
+  den1 = Total[Flatten[assignedAreaGrid]];
+  remapMeanSource =
+    If[den1 == 0, Missing["NoData"],
+      Total[Flatten[Replace[mapGrid, Null -> 0, {2}] * assignedAreaGrid]] / den1
+    ];
+
+  (* painted-target mean: diagnostic only *)
+  den2 = observedArea;
+  remapMeanPainted =
+    If[den2 == 0, Missing["NoPaintedArea"],
+      Total[
+        Pick[
+          Flatten[Replace[mapGrid, Null -> 0, {2}] * targetWeights],
+          Flatten[validMask],
+          True
+        ]
+      ] / den2
+    ];
+
+  If[TrueQ[OptionValue["PrintDiagnostics"]],
+    Print["Check area sum target (sr): ", N[areaSum]];
+    Print["4\[Pi] normalization check: ", N[fourPiCheck]];
+    Print["Observed area (target cells with data) (sr): ", N[observedArea]];
+    Print["Native mean (source-area weighted): ", N[nativeMean]];
+    Print["Remap mean (source-conserved):      ", N[remapMeanSource]];
+    Print["Remap mean (painted target):        ", N[remapMeanPainted]];
+  ];
+
+  (*mapOut =
+    If[norm === "relative" && op =!= "sum",
+      Module[{mapWeighted},
+        mapWeighted = mapGrid / remapMeanSource;
+        sanityPost =
+          Total[
+            Flatten[Replace[mapWeighted, Null -> 0, {2}] * assignedAreaGrid]
+          ] / den1;
+        Print["Post-normalization mean (source-conserved): ", N[sanityPost]];
+        mapWeighted
+      ],
+      mapGrid
+    ];*)
+
+  mapGrid
+]
 
 
 (*The area weighting accounts for unequal pixel solid angles at different latitudes (since HEALPix pixels are equal-area on the sphere, but your 2D rectangular grid cells are not)*)
@@ -316,51 +618,160 @@ map
 ];
 
 
-Options[changeGridHPtoLayout] = {"weighted" -> False};
+Options[changeGridHPtoLayout] = {
+  "Op" -> "mean",              (* "mean" for flux/rate, "sum" for exposure/counts *)
+  "PrintDiagnostics" -> True
+};
+
 changeGridHPtoLayout[data_, resolution_, OptionsPattern[]] := 
-Module[{mapMean, coordinates, longitudes, colatitudes, val, nRows, 
-nCols, colatBins, longBins, rowIdx, colIdx, pairs, rules, assoc, 
-mapTotalParitioned, dat, weightedQ},
+ Module[
+  {
+   coordinates, longitudes, colatitudes, val, nRows, nCols,
+   rowIdx, colIdx, triplets, validTriplets, rules,
+   assocVals, assocCnt, mapMean, countGrid,
+   dtheta, dphi, thetaCenters, targetWeights, validMask,
+   nativeMean, remapMeanSource, remapMeanPainted,
+   den1, den2,op
+  },
 
-weightedQ = TrueQ[OptionValue["weighted"]];
+  coordinates = getHPcoord[healpixringxyz];
+  longitudes = coordinates[[All, 2]];
+  colatitudes = coordinates[[All, 1]];
+  val = Flatten[data];
 
-coordinates = getHPcoord[healpixringxyz];  (* {colat, lon} in deg *)
-longitudes   = coordinates[[All, 2]];
-colatitudes  = coordinates[[All, 1]];
-val = Flatten[data];
+  nRows = resolution[[1]];
+  nCols = resolution[[2]];
 
-nRows = resolution[[1]];
-nCols = resolution[[2]];
-(*bin edges *)
-colatBins = Subdivide[0, 180, nRows];
-longBins  = Subdivide[0, 360, nCols];
+  rowIdx = Clip[Floor[(colatitudes)/(180./nRows) + 1], {1, nRows}];
+  colIdx = Clip[Floor[(longitudes)/(360./nCols) + 1], {1, nCols}];
 
-rowIdx = Clip[Floor[(colatitudes - 1)/(180/nRows) + 1], {1, nRows}];
-colIdx = Clip[Floor[(longitudes - 1)/(360/nCols) + 1], {1, nCols}];
+  triplets = Transpose[{rowIdx, colIdx, val}];
+  validTriplets = Select[triplets, NumericQ[#[[3]]] &];
 
-pairs = Transpose[{rowIdx, colIdx, val}];
-rules = MapThread[Rule, {pairs[[All, {1, 2}]], pairs[[All, 3]]}];
-assoc = GroupBy[rules, First -> Last];
+  rules = ({#[[1]], #[[2]]} -> #[[3]]) & /@ validTriplets;
 
-(*mode: area-weighted OR simple mean*)
-mapMean = If[weightedQ, 
-areaWeightedMean[assoc, resolution],
-Table[ With[{vals = Select[Lookup[assoc, Key[{r, c}], {}] /. {Null -> Sequence[], Missing[_] -> Sequence[]}, NumericQ]},
-If[vals === {}, Null, Mean[vals]]],
-{r, 1, nRows}, {c, 1, nCols}]
+  assocVals = GroupBy[rules, First -> Last];
+  assocCnt = Counts[First /@ rules];
+
+  (*mapMean = Table[
+    With[{vals = Lookup[assocVals, Key[{r, c}], {}]},
+      If[vals === {}, Null, Mean[vals]]
+    ],
+    {r, 1, nRows}, {c, 1, nCols}
+  ];*)
+  op = OptionValue["Op"];
+
+	mapMean = Table[
+	  With[{vals = Lookup[assocVals, Key[{r, c}], {}]},
+	    Which[
+	      vals === {}, Null,
+	      op === "sum", Total[vals],
+	      True, Mean[vals]
+	    ]
+	  ],
+	  {r, 1, nRows}, {c, 1, nCols}
+	];
+
+  countGrid = Table[
+    Lookup[assocCnt, Key[{r, c}], 0],
+    {r, 1, nRows}, {c, 1, nCols}
+  ];
+
+  dtheta = 180./nRows;
+  dphi = 360./nCols;
+  thetaCenters = Range[dtheta/2, 180 - dtheta/2, dtheta];
+
+  targetWeights = Table[
+    Sin[thetaCenters[[r]] Degree] * dtheta Degree * dphi Degree,
+    {r, nRows}, {c, nCols}
+  ];
+
+  validMask = Map[NumericQ, mapMean, {2}];
+
+  nativeMean = Mean[Cases[val, _?NumericQ]];
+
+  den1 = Total[Flatten[countGrid]];
+  remapMeanSource =
+    If[den1 == 0, Missing["NoData"],
+      Total[Flatten[Replace[mapMean, Null -> 0, {2}] * countGrid]]/den1
+    ];
+
+  den2 = Total[
+    Pick[Flatten[targetWeights], Flatten[validMask], True]
+  ];
+  remapMeanPainted =
+    If[den2 == 0, Missing["NoPaintedArea"],
+      Total[
+        Pick[
+          Flatten[Replace[mapMean, Null -> 0, {2}] * targetWeights],
+          Flatten[validMask],
+          True
+        ]
+      ]/den2
+    ];
+
+  If[TrueQ[OptionValue["PrintDiagnostics"]],
+    Print["HP native mean (equal-area source): ", N[nativeMean]];
+    Print["HP remap mean (source-conserved):   ", N[remapMeanSource]];
+    Print["HP remap mean (painted target):     ", N[remapMeanPainted]];
+  ];
+Print["HP target cells total: ", nRows*nCols];
+Print["HP target cells with >=1 HP pixel center: ", Count[Flatten[countGrid], _?(# > 0 &)]];
+Print["HP target cells with numeric output: ", Count[Flatten[mapMean], _?NumericQ]];
+Print["HP empty target cells: ", Count[Flatten[countGrid], 0]];
+Print["HP Null target cells: ", Count[Flatten[mapMean], Null]];
+Print["HP min/max HP pixels per painted cell: ",
+  MinMax[Select[Flatten[countGrid], # > 0 &]]
 ];
-mapTotalParitioned = mapMean/.{(_?NumericQ) Null -> Null, 
-Plus[Null, a_?NumericQ] :> a, Plus[a_?NumericQ, Null] :> a};
-mapTotalParitioned=mapTotalParitioned/.{(_?NumericQ) Null -> Null, 
-Plus[Null, a_?NumericQ] :> a, Plus[a_?NumericQ, Null] :> a};
-(*dat = ExportString[mapTotalParitioned, "Table"];
-  Export[
-   ToFileName[outputDir] <> 
-    "normalizedHP2IB_" <> ToString[tesselation] <> "_" <> 
-     ToString[energyStep] <> "_" <> ToString[resolution[[1]]] <> "_" <> 
-     ToString[resolution[[2]]] <> ".txt", dat];*)
- mapTotalParitioned
-];
+  mapMean
+]
+
+
+areaWeightedObservedMeanGrid[map_, resolution_] :=
+ Module[
+  {nRows, nCols, dtheta, dphi, thetaCenters, weights,
+   validMask, observedArea, mean},
+
+  {nRows, nCols} = resolution;
+
+  dtheta = 180./nRows;
+  dphi = 360./nCols;
+
+  thetaCenters = Range[dtheta/2, 180 - dtheta/2, dtheta];
+
+  weights = Table[
+    Sin[thetaCenters[[r]] Degree] * dtheta Degree * dphi Degree,
+    {r, nRows}, {c, nCols}
+  ];
+
+  validMask = Map[NumericQ, map, {2}];
+
+  observedArea =
+    Total[Pick[Flatten[weights], Flatten[validMask], True]];
+
+  mean =
+    Total[
+      Pick[
+        Flatten[Replace[map, Null -> 0, {2}] * weights],
+        Flatten[validMask],
+        True
+      ]
+    ]/observedArea;
+
+  mean
+]
+
+
+relativeNormalizeGrid[map_, resolution_, label_:""] :=
+ Module[{mean},
+  mean = areaWeightedObservedMeanGrid[map, resolution];
+
+  If[label =!= "",
+    Print[label, " relative denominator: ", N[mean]]
+  ];
+
+  map/mean
+]
 
 
 uniformTessellationChange[data_,coordinates_,coordinatesNew_,tesselationNew_]:=Module[{coordinatesNewWithPixels,pixelsOriginalInNewGrid,dataNew,zeroList},
@@ -480,4 +891,4 @@ Export[ToFileName[outputDir]<>"data_RibbonCentered_t"<>ToString[tesselation]<>"_
 
 
 bin1to6[list_]:=Module[{i=#},list[[i;;i+5]]]&/@Range[1,Length[list],6]
-bin2to6[list_]:=Module[{i=#},list[[i;;i+3]]]&/@Range[1,Length[list],4]
+bin2to6[list_]:=Module[{i=#},list[[i;;i+2]]]&/@Range[1,Length[list],3]
