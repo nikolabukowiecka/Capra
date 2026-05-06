@@ -1,5 +1,12 @@
 # Capra
-HEALPix based system to create all sky maps of probability density distributions from event counting sky surveys. The algorithm was developed based on the IBEX mission characteristics, with the applications to IMAP mission, however could be applied to any event counting sky surveying missions. 
+
+We present Capra, a HEALPix-native pipeline for reconstructing all-sky energetic neutral atom (ENA) intensity maps from the NASA Interstellar Boundary Explorer (IBEX) and  Interstellar Mapping and Acceleration (IMAP) missions' event-counting data. As one of the possibilities, Capra distributes events according to the normal distribution over the HEALPix grid. This produces smooth, physically interpretable maps with consistent resolution changes and reference-frame transformations. 
+
+The reconstructed maps capture the large-scale morphology of the large-scale intensity while filtering out small-scale mottling and strip artifacts.  
+
+We verify invariance (preservation) of counts, signals, rates, and intensities across tessellations under coordinate transformations, and demonstrate numerical convergence by N_side=64 for a representative dataset. 
+
+We show that thread-based parallelism performance exhibit approximately linear weak scaling, with bounded memory usage, enabling efficient high-resolution reconstruction and making Capra well-suited for high-resolution IMAP reconstruction.
 
 In the "Run the code" notebook:
 1. Set up paths:
