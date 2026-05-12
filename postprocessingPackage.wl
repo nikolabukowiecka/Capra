@@ -774,6 +774,40 @@ relativeNormalizeGrid[map_, resolution_, label_:""] :=
 ]
 
 
+normalizeRelative[data_, tesselation_, energyStep_] :=
+ Module[{dataMasked, validMask, validVals, meanFlux, rel, dat},
+
+  dataMasked = data /. Null -> Missing["NoData"];
+
+  validMask = NumericQ /@ dataMasked;
+  validVals = Pick[dataMasked, validMask];
+
+  If[validVals === {},
+    Print["No valid pixels for relative normalization."];
+    Return[data]
+  ];
+
+  meanFlux = Mean[validVals];
+
+  If[meanFlux == 0,
+    Print["Relative normalization denominator is zero."];
+    Return[data]
+  ];
+
+  Print[" HEALPix relative denominator: ", N[meanFlux]];
+
+  rel = dataMasked/meanFlux;
+  rel = rel /. Missing["NoData"] -> Null;
+
+  validMask = NumericQ /@ rel;
+  Print[
+    "Mean after relative normalization (should be 1): ",
+    N[Mean[Pick[rel, validMask]]]
+  ];
+  rel
+]
+
+
 uniformTessellationChange[data_,coordinates_,coordinatesNew_,tesselationNew_]:=Module[{coordinatesNewWithPixels,pixelsOriginalInNewGrid,dataNew,zeroList},
 zeroList=Flatten[Position[data,Null]];
 coordinatesNewWithPixels=Transpose[Append[{Range[Length[coordinatesNew]]},coordinatesNew]];
