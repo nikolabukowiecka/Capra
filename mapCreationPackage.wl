@@ -51,8 +51,8 @@ mapSignal = Total[(Module[{element = #}, Last[#][[3]] & /@ element] & /@ oneOrbi
 	mapSignalMain = (mapSignalMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
 	
 	mapRatesMain = If[mapExposuresMain[[#]]===0||mapExposuresMain[[#]]===Null,Null,mapSignalMain[[#]]/(mapExposuresMain[[#]])]&/@Range[Length[mapExposuresMain]];
-	geometricFactorTriples = {0.00013, 0.00041, 0.00075, 0.0013, 0.0024, 0.0045}; (*source: https://ibex.princeton.edu/sites/g/files/toruqf1596/files/documents/IBEX_CMAD_signed_final.pdf*)
-	centralEnergies = {0.45, 0.71, 1.08, 1.85, 2.70, 4.09}; (*source: above*)
+	geometricFactorTriples = {.00013,.00037,.00073,.0014,.0025,.0042}; (*source: Dan *)
+	centralEnergies = {0.45, 0.71, 1.10, 1.74, 2.73, 4.29}; (*source: Dan*)
 	geometricFactor = geometricFactorTriples[[energyStep]];
 	centralEnergy   = centralEnergies[[energyStep]];
 	mapENAFluxMain = If[mapExposuresMain[[#]]===0||mapExposuresMain[[#]]===Null,Null,mapSignalMain[[#]]/(mapExposuresMain[[#]]*geometricFactor*centralEnergy)]&/@Range[Length[mapExposuresMain]];
