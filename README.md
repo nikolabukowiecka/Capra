@@ -11,6 +11,8 @@ a user-selected kernel.
 Capra is intended for transparent, reproducible ENA map-making and comparison
 between reconstruction products such as elementary IBEX maps and THESEUS maps.
 
+DOI 10.5281/zenodo.20584912
+
 ## Main features
 
 - HEALPix-native all-sky reconstruction
