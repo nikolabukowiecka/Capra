@@ -3,6 +3,9 @@ import pandas as pd
 import numpy as np
 import healpy as hp
 import matplotlib.pyplot as plt
+from ibex_colormap import load_ibex_colormap
+
+cmap_ibex = load_ibex_colormap("load_ibex_color_table.pro")
 
 print('Tesselation = ')
 NSIDE = int(input())
@@ -19,7 +22,7 @@ coordsys = input()
 print('Type filename, exe: data_t64_6Null.txt?')
 dat = input()
 
-dataname = os.path.join(os.path.join(os.getcwd(), "output/Gaussian"), f"{dat}")
+dataname = os.path.join(os.path.join(os.getcwd(), "output/Gaussian/Part1"), f"{dat}")
 
 X = pd.read_csv(dataname, sep="\t", header=None)
 
@@ -49,17 +52,20 @@ if coordsys == 'gal':
     lon_nose, lat_nose = 255.7, 5.1  # ecliptic deg
 
     hp.mollview(
-        np.log10(m),
+        m,
         coord=['E','G'],        # rotate map to Galactic
         title=f"Capra, $E_{estep}$, $N_{{side}}={NSIDE}$. Galactic frame.",
         #unit="Flux [counts s$^{-1}$ sr$^{-1}$]",
-        unit = "$\log_{10}(\mathrm{FluxGDF})\ [\mathrm{dimensionless}]$",
+        unit = "$\mathrm{FluxGDF}\ [\mathrm{dimensionless}]$",
         cmap="jet",
         flip='geo',
         notext=True,
         xsize=1600,
         fig=fig,
-        min=-0.7,max=0.7 #for GDF
+        #min=-0.7,max=0.7 #for GDF
+        #min = -0.98, max = 0.39 # for relative
+        #min = 0.0,max = 2.60 #for relative raw 3
+        min = 0,max = 2.8 #for GDF raw log 4
     )
     hp.graticule(dpar=30, dmer=30, color='white', linestyle='--', linewidth=0.8)
 
@@ -89,17 +95,21 @@ if coordsys == 'gal':
 if coordsys == 'ecl':
     fig = plt.figure(figsize=(12, 6))
     hp.mollview(
-        m,
+        #m,
+        np.log10(m),
+        #title=f"IBEX-Hi, $E_{estep}$, $N_{{side}}={NSIDE}$. Ecliptic frame.",
         title=f"IBEX-Hi, $E_{estep}$, $N_{{side}}={NSIDE}$. Ecliptic frame.",
-        unit="Flux [counts s$^{-1}$ sr$^{-1}$]",
+        #unit="Flux [counts s$^{-1}$ sr$^{-1}$]",
+        unit = "$\log_{10}(\mathrm{FluxGDF})\ [\mathrm{dimensionless}]$",
+
         #unit = "Signal rate [counts / s]",
         cmap="jet",
         notext=True,
         xsize=1600,
         #flip='geo',
-        fig=fig
-        # min=-1,
-        # max=4
+        fig=fig,
+        min=-1, max=4
+        #min = -0.5, max = 0.6 #for GDF raw log 4
     )
 
     # Get the current axes
@@ -129,26 +139,21 @@ if coordsys == 'nose':
     m_nose = rot.rotate_map_pixel(m)
 
     # Plot centered at 180° (default Mollweide center)
-    hp.mollview(np.log10(np.clip(m_nose, 1e-6, None)),
+    #hp.mollview(np.log10(np.clip(m_nose, 1e-6, None)),
+    hp.mollview(np.clip(m_nose, 1e-6, None),
                 coord='E',# flip='geo',
                 title=f"Capra, $E_{estep}$, $N_{{side}}={NSIDE}$. Nose-centered ecliptic frame.",
                 #title=f"Theseus - HP, $E_{estep}$, $N_{{side}}={NSIDE}$. Nose-centered ecliptic frame.",
                 #unit="Flux [counts s$^{-1}$ sr$^{-1}$]",
                 #unit="$\log_{10}(\mathrm{Rates})\ $",
                 #unit = "$\log_{10}(\mathrm{Flux})\ [\mathrm{dimensionless}]$",
-                unit = "$\log_{10}(\mathrm{FluxGDF})\ [\mathrm{dimensionless}]$",
-                cmap='jet', xsize=1600,
+                unit = "$\mathrm{relativeFlux}\ [\mathrm{dimensionless}]$",
+                #cmap='jet',
+                cmap=cmap_ibex, 
+                xsize=1600,
 
-                #for ESA4
-                #min=-1,max=1) #counts
-                #min=0.1,max=2.2) #exp
-                #min=-1.5,max=1) #signal
-                #min=-1.5,max=-0.8) #rates
-                #min=0.9,max=1.9) #fluxes
+                min = 0, max = 2.3)
 
-                #good in general
-                #min=-0.3,max=0.3) #for relative flux
-                min=-0.7,max=0.7) #for GDF flux
     data = np.clip(m_nose, 1e-6, None)
     print(np.min(data[~np.isnan(data)]))
     print(np.max(data[~np.isnan(data)]))
@@ -211,10 +216,10 @@ if coordsys == 'rib':
     # print(f"sep(ribbon,nose) orig={sep_orig:.1f}°,  from rotated={sep_rot:.1f}°")
 
     # --- plot by letting mollview do the same recentering visually ---
-    hp.mollview(np.log10(np.clip(m,1e-6,None)),
+    hp.mollview(m,
                 coord='E', rot=(lon_rib, lat_rib, 0), #flip='geo',
                 title=f"Capra, $E_{estep}$, $N_{{side}}={NSIDE}$. Ribbon-centered ecliptic frame",
-                unit="$\log_{10}(\mathrm{FluxGDF})\ [\mathrm{dimensionless}]$", cmap='jet', min=-0.7, max=0.7)
+                unit="$\mathrm{FluxGDF}\ [\mathrm{dimensionless}]$", cmap='jet', min = 0,max = 2.8) #for GDF raw log 4 #min=-0.7, max=0.7)
     hp.graticule(dpar=30, dmer=30, color='white', linestyle='--', linewidth=0.8, alpha=0.6)
 
     # markers (give ecliptic coords; mollview applies same rot)

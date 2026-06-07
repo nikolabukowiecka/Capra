@@ -77,13 +77,16 @@ import numpy as np
 import pandas as pd
 import os
 import cmcrameri.cm as cmc
+from ibex_colormap import load_ibex_colormap
+
+cmap_ibex = load_ibex_colormap("load_ibex_color_table.pro")
 
 print('Dataname : ')
 dat = input().strip()
 print('Energy step = ')
 estep = int(input())
 
-dataname = os.path.join(os.getcwd(), "output/Gaussian", f"{dat}")
+dataname = os.path.join(os.getcwd(), "output/Gaussian/Part0", f"{dat}")
 
 # Treat these as missing (add more tokens if your files use different strings)
 Y = pd.read_csv(
@@ -118,15 +121,15 @@ lat = np.linspace(90, -90, lat_size)
 # ok = np.isfinite(arr)
 # arr_log[ok] = signed_log(arr[ok], x0=x0)
 
-# #linear
-# arr_plot = np.full_like(arr, np.nan, dtype=float)
-# ok = np.isfinite(arr)
-# arr_plot[ok] = arr[ok]
+#linear
+arr_plot = np.full_like(arr, np.nan, dtype=float)
+ok = np.isfinite(arr)
+arr_plot[ok] = arr[ok]
 
 #log10
-arr_plot = np.full_like(arr, np.nan, dtype=float)
-ok = np.isfinite(arr) & (arr > 0)
-arr_plot[ok] = np.log10(arr[ok])
+# arr_plot = np.full_like(arr, np.nan, dtype=float)
+# ok = np.isfinite(arr) & (arr > 0)
+# arr_plot[ok] = np.log10(arr[ok])
 
 # Nose-centered rotation
 lon_nose, lat_nose = 255.7, 5.1  # ecliptic nose
@@ -142,7 +145,7 @@ arr_centered_plot = np.ma.masked_invalid(arr_centered_plot)
 
 #cmap = plt.cm.get_cmap('batlow').copy()
 #cmap = 'turbo'
-cmap = plt.colormaps['turbo'].resampled(256).copy()
+##cmap = plt.colormaps['turbo'].resampled(256).copy()
 #cmap.set_bad('black')
 
 fig = plt.figure(figsize=(8, 6))
@@ -152,13 +155,36 @@ im = ax.pcolormesh(
     np.radians(lon),
     np.radians(lat),
     arr_centered_plot,
-    cmap=cmap,
+    #cmap=cmap,
+    cmap=cmap_ibex,
     shading='auto',
-    vmin = 0.17837,
-    #vmax = 1.509776
-    # vmin=0.17837,
-     vmax=1.3
+
+    vmin = 0.0,
+    #GDF linear
+    #vmax = 
+    #4.1
+    #3.7
+    #2.8
+    #3.5
+    #4.3
+
+    #relative linear
+    #vmax = 
+    #3.0
+    #3.0
+    #2.1
+    #2.4
+    #2.3
+
+    #raw
+    vmax = 
+    600
+    #300
+    #100
+    #40
+    #15
 )
+    
 
 print(np.min(arr_centered_plot))
 print(np.max(arr_centered_plot))
@@ -174,8 +200,9 @@ ax.grid(True, color='white', linestyle='--', alpha=0.5)
 # )
 
 cb = fig.colorbar(im, ax=ax, orientation="horizontal", pad=0.05, fraction=0.07)
-cb.set_label(r"$\log_{10}(\mathrm{Flux})\ [\mathrm{dimensionless}]$", fontsize=10, color="black")
-#cb.set_label(r"$\mathrm{Flux}$", fontsize=10, color="black")
+#cb.set_label(r"$\mathrm{fluxGDF}\ [\mathrm{dimensionless}]$", fontsize=10, color="black")
+#cb.set_label(r"$\log_{10}(\mathrm{Flux})\ [\mathrm{dimensionless}]$", fontsize=10, color="black")
+cb.set_label(r"$\mathrm{Flux} \; [ENAs \; / \; (cm^2 \; s \; sr \; keV)]$", fontsize=10, color="black")
 
 # markers
 ax.scatter(0, np.radians(lat_nose), s=100, facecolor="k", edgecolor="white", zorder=10)
