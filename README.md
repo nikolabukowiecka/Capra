@@ -173,7 +173,8 @@ input to the Capra pipeline and do not include the standard ISOC smoothing.
 
 
 ## Contributors
-Nikola Bukowiecka led the analysis, software development and writing of the manuscript (in preparation).
-Daniel Reisenfeld from Los Alamos National Laboratory acquired the observations and contributed relevant scientific expertise to the project and wiritng of the manuscript (in preparation).
+Nikola Bukowiecka led the analysis, software development and writing of the manuscript (preprint: https://arxiv.org/abs/2608.25134).
+Daniel Reisenfeld from Los Alamos National Laboratory acquired the observations and contributed
+relevant scientific expertise to the project as well as contributed to the preparation of the manuscript.
 Maciej Bzowski from Polish Space Research Centre, Polish Academy of Sciences contributed with geometricPackage.wl, and with early science advice to the project. This study was supported by the Polish Ministry for Education and Science under contract MEiN/2021/2/DIR. 
 
