@@ -82,6 +82,24 @@ if coordsys == 'gal':
     hp.projscatter(lon_gal, lat_gal, lonlat=True, coord='G', color='black', marker='^', s=120, edgecolor='black', linewidth=0.8)
     hp.projtext(lon_gal, lat_gal, 'Nose', lonlat=True, coord='G', color='black', fontsize=12, fontweight='bold')
     
+    # Ribbon center: ecliptic -> Galactic
+    lon_rib, lat_rib = 221.0, 39.0  # ecliptic deg
+
+    lon_rib_gal, lat_rib_gal = rot_e2g(lon_rib, lat_rib, lonlat=True)
+
+    hp.projscatter(
+        lon_rib_gal, lat_rib_gal,
+        lonlat=True, coord='G',
+        color='black', marker='*', s=170,
+        edgecolor='white', linewidth=0.8
+    )
+
+    hp.projtext(
+        lon_rib_gal, lat_rib_gal,
+        '  Ribbon  ',
+        lonlat=True, coord='G',
+        color='black', fontsize=11, fontweight='bold'
+    )
 
     # Plot separately
     #hp.projscatter(lon_gal[0], lat_gal[0], lonlat=True, coord='G', color='black', marker='^', s=120, edgecolor='black', linewidth=0.8)
@@ -107,8 +125,8 @@ if coordsys == 'ecl':
         notext=True,
         xsize=1600,
         #flip='geo',
-        fig=fig,
-        min=-1, max=4
+        fig=fig#,
+        #min=-1, max=4
         #min = -0.5, max = 0.6 #for GDF raw log 4
     )
 
@@ -150,9 +168,9 @@ if coordsys == 'nose':
                 unit = "$\mathrm{relativeFlux}\ [\mathrm{dimensionless}]$",
                 #cmap='jet',
                 cmap=cmap_ibex, 
-                xsize=1600,
+                xsize=1600)#,
 
-                min = 0, max = 2.3)
+                #min = 0, max = 2.1)
 
     data = np.clip(m_nose, 1e-6, None)
     print(np.min(data[~np.isnan(data)]))

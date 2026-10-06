@@ -10,10 +10,10 @@
 NotebookFileLineBreakTest
 NotebookFileLineBreakTest
 NotebookDataPosition[       154,          7]
-NotebookDataLength[      9589,        199]
-NotebookOptionsPosition[      8677,        179]
-NotebookOutlinePosition[      9071,        195]
-CellTagsIndexPosition[      9028,        192]
+NotebookDataLength[     10206,        213]
+NotebookOptionsPosition[      9200,        192]
+NotebookOutlinePosition[      9594,        208]
+CellTagsIndexPosition[      9551,        205]
 WindowFrame->Normal*)
 
 (* Beginning of Notebook Content *)
@@ -36,7 +36,7 @@ Cell[BoxData[{
    RowBox[{"ToFileName", "[", 
     RowBox[{"baseDir", ",", "\"\<ibex\>\""}], "]"}]}], ";"}], "\[IndentingNewLine]", 
  RowBox[{
-  RowBox[{"ibexDataName", "=", "\"\<Map2018A_1deg_binned\>\""}], ";"}], "\[IndentingNewLine]", 
+  RowBox[{"ibexDataName", "=", "\"\<Map2018B_1deg_binned\>\""}], ";"}], "\[IndentingNewLine]", 
  RowBox[{
   RowBox[{"spinAxDir", "=", 
    RowBox[{"ToFileName", "[", 
@@ -68,8 +68,9 @@ Cell[BoxData[{
    3.971792514733378*^9}, 3.9721342909906073`*^9, {3.972161994897573*^9, 
    3.972162001040526*^9}, {3.979047540947592*^9, 3.979047544167461*^9}, {
    3.979049668017861*^9, 3.9790496729739923`*^9}, {3.979498507874197*^9, 
-   3.979498509467029*^9}},
- CellLabel->"In[11]:=",ExpressionUUID->"f2ea872b-e046-4162-b547-5ed2572e3d95"],
+   3.979498509467029*^9}, {4.000312539728157*^9, 
+   4.0003125398931313`*^9}},ExpressionUUID->"f2ea872b-e046-4162-b547-\
+5ed2572e3d95"],
 
 Cell[BoxData[{
  RowBox[{
@@ -144,8 +145,10 @@ Cell[BoxData[
   RowBox[{
    RowBox[{"{", 
     RowBox[{
-    "mapCountsMain", ",", " ", "mapExposuresMain", ",", " ", "mapSignalMain", 
-     ",", "mapRatesMain", ",", "mapENAFluxMain"}], "}"}], "=", 
+    "mapCountsMain", ",", " ", "mapExposuresMain", ",", "mapSignalMain", ",", 
+     "mapRatesMain", ",", "mapENAFluxMain", ",", "mapCountsVarianceMain", ",",
+      " ", "mapBackgroundErrorUncMain", ",", "mapRatesErrorMain", ",", 
+     "mapENAFluxErrorMain"}], "}"}], "=", 
    RowBox[{
     RowBox[{"run", "[", 
      RowBox[{"ibexHi", ",", " ", "healpixDir", ",", " ", 
@@ -164,18 +167,28 @@ Cell[BoxData[
    3.979056594594947*^9}, 3.9790603101661263`*^9, {3.979061069652218*^9, 
    3.979061075007876*^9}, {3.979061187979641*^9, 3.9790611881008987`*^9}, {
    3.97906231346338*^9, 3.979062320796467*^9}, 3.9792328083676167`*^9, {
-   3.9794985227171383`*^9, 3.9794985325766277`*^9}},
- CellLabel->"In[31]:=",ExpressionUUID->"c32e8981-83d7-4c2f-889c-6670bbcf8502"],
+   3.9794985227171383`*^9, 3.9794985325766277`*^9}, {4.0003111665758457`*^9, 
+   4.0003111806036367`*^9}},ExpressionUUID->"c32e8981-83d7-4c2f-889c-\
+6670bbcf8502"],
 
 Cell[BoxData[
  RowBox[{"exportData", "[", 
   RowBox[{
-  "mapCountsMain", ",", "mapExposuresMain", ",", "mapSignalMain", ",", 
-   "mapRatesMain", ",", "mapENAFluxMain", ",", "tesselation", ",", 
-   "energyStep", ",", "outputDir"}], "]"}]], "Input",
+  "mapCountsMain", ",", " ", "mapExposuresMain", ",", "mapSignalMain", ",", 
+   "mapRatesMain", ",", "mapENAFluxMain", ",", "mapCountsVarianceMain", ",", 
+   " ", "mapBackgroundErrorUncMain", ",", "mapRatesErrorMain", ",", 
+   "mapENAFluxErrorMain", ",", "tesselation", ",", "energyStep", ",", 
+   "outputDir"}], "]"}]], "Input",
  CellChangeTimes->{{3.95167191681955*^9, 3.951671929254396*^9}, {
-   3.9682455862106733`*^9, 3.968245587300186*^9}, 3.97179249317083*^9},
- CellLabel->"In[32]:=",ExpressionUUID->"53053059-c57a-4268-97cb-1068d9ab8f21"]
+   3.9682455862106733`*^9, 3.968245587300186*^9}, 3.97179249317083*^9, 
+   4.000311190553115*^9},ExpressionUUID->"53053059-c57a-4268-97cb-\
+1068d9ab8f21"],
+
+Cell[BoxData[
+ RowBox[{"CloseKernels", "[", "]"}]], "Input",
+ CellChangeTimes->{{4.000312514312972*^9, 
+  4.0003125143143463`*^9}},ExpressionUUID->"ac767ba0-0d64-4692-8a5a-\
+2581d616651b"]
 },
 WindowSize->{808, 856},
 WindowMargins->{{46, Automatic}, {Automatic, 28}},
@@ -194,13 +207,14 @@ CellTagsIndex->{}
 *)
 (*NotebookFileOutline
 Notebook[{
-Cell[554, 20, 2765, 51, 151, "Input",ExpressionUUID->"f2ea872b-e046-4162-b547-5ed2572e3d95"],
-Cell[3322, 73, 579, 12, 49, "Input",ExpressionUUID->"47ffa62c-f9d6-4a65-bb33-cdf9587ed759"],
-Cell[3904, 87, 255, 5, 29, "Input",ExpressionUUID->"5ccee6c9-b310-4dfb-a3c7-6b6476e496e4"],
-Cell[4162, 94, 556, 12, 29, "Input",ExpressionUUID->"d8c34e64-75a6-4fdb-aef7-555f5d51860f"],
-Cell[4721, 108, 1961, 31, 90, "Input",ExpressionUUID->"98d8989a-a22b-4109-8497-ba434795a817"],
-Cell[6685, 141, 1521, 26, 49, "Input",ExpressionUUID->"c32e8981-83d7-4c2f-889c-6670bbcf8502"],
-Cell[8209, 169, 464, 8, 49, "Input",ExpressionUUID->"53053059-c57a-4268-97cb-1068d9ab8f21"]
+Cell[554, 20, 2795, 52, 151, "Input",ExpressionUUID->"f2ea872b-e046-4162-b547-5ed2572e3d95"],
+Cell[3352, 74, 579, 12, 49, "Input",ExpressionUUID->"47ffa62c-f9d6-4a65-bb33-cdf9587ed759"],
+Cell[3934, 88, 255, 5, 29, "Input",ExpressionUUID->"5ccee6c9-b310-4dfb-a3c7-6b6476e496e4"],
+Cell[4192, 95, 556, 12, 29, "Input",ExpressionUUID->"d8c34e64-75a6-4fdb-aef7-555f5d51860f"],
+Cell[4751, 109, 1961, 31, 90, "Input",ExpressionUUID->"98d8989a-a22b-4109-8497-ba434795a817"],
+Cell[6715, 142, 1683, 29, 70, "Input",ExpressionUUID->"c32e8981-83d7-4c2f-889c-6670bbcf8502"],
+Cell[8401, 173, 604, 11, 70, "Input",ExpressionUUID->"53053059-c57a-4268-97cb-1068d9ab8f21"],
+Cell[9008, 186, 188, 4, 29, "Input",ExpressionUUID->"ac767ba0-0d64-4692-8a5a-2581d616651b"]
 }
 ]
 *)

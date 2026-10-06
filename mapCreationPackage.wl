@@ -12,7 +12,7 @@ ibexHi = Map[ fun`ibexDataRead[ToFileName[ibexDataDir,ibexDataName], #]&, ibexFi
 Options[run] = {"smoothing" -> Null};
 
 run[ibexHi_, healpixDir_, OptionsPattern[]] :=
-Module[{smoothing, domega, hpPath, result, mapCountsMain, mapSignalMain, mapExposuresMain, mapRatesMain, mapENAFluxMain, geometricFactorTriples, centralEnergies, geometricFactor, centralEnergy},
+Module[{smoothing, domega, hpPath, result, mapCountsMain, mapSignalMain, mapExposuresMain, mapRatesMain, mapCountsVarianceMain, mapBackgroundErrorUncMain, mapSignalVarianceMain, mapRatesErrorMain, mapENAFluxErrorMain, mapENAFluxMain, geometricFactorTriples, centralEnergies, geometricFactor, centralEnergy},
 smoothing = If[OptionValue["smoothing"] === "Gaussian", "Gaussian", Null];
 
 hpPath = ToFileName[healpixDir, "testXYZ"];
@@ -24,31 +24,41 @@ With[{sm = smoothing},
 result =
 ParallelMap[
 Module[{
-orbitCount = #, exposuretime, counts, signal, backgroundRate, ibexLatitude, ibexLongitude, rotationAxisAng, visibilityRangePixels, oneOrbitMap, mapCounts, mapExposures, mapSignal},
+orbitCount = #, exposuretime, counts, signal, backgroundRate, backgroundRateError, ibexLatitude, ibexLongitude, rotationAxisAng, visibilityRangePixels, oneOrbitMap, mapCounts, mapExposures, mapSignal, mapCountsVariance, mapBackgroundErrorUnc},
 exposuretime = ToExpression["expE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
 exposuretime = exposuretime*10^-3*1.; (* seconds *)
 counts = ToExpression["ctsE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
 backgroundRate = ToExpression["bkgE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
+backgroundRateError = ToExpression["bkgErrE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
 ibexLatitude = ToExpression["eclatE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
 ibexLongitude = ToExpression["eclonE" <> ToString[energyStep]] /. ibexHi[[orbitCount]];
 rotationAxisAng = { spinAxEcLon /. ibexHi[[orbitCount]], spinAxEcLat /. ibexHi[[orbitCount]]};
 visibilityRangePixels = choseRing[rotationAxisAng];
 Print["Loading arc ", orbNo /. ibexHi[[orbitCount]]];
 
-oneOrbitMap = calcOneOrbit[ibexLatitude, ibexLongitude, exposuretime, counts, backgroundRate,visibilityRangePixels, healpixringxyz, sm];
+oneOrbitMap = calcOneOrbit[ibexLatitude, ibexLongitude, exposuretime, counts, backgroundRate, backgroundRateError, visibilityRangePixels, healpixringxyz, sm];
+
 mapCounts = Total[(Module[{element = #}, First[Last[#]] & /@ element] & /@ oneOrbitMap)];
 mapExposures =Total[(Module[{element = #}, Last[#][[2]] & /@ element] & /@ oneOrbitMap)];
 mapSignal = Total[(Module[{element = #}, Last[#][[3]] & /@ element] & /@ oneOrbitMap)];
-{mapCounts, mapExposures, mapSignal}] &,Range[Length[ibexHi]]
+mapCountsVariance = Total[(Module[{element = #}, Last[#][[4]] & /@ element] & /@ oneOrbitMap)];
+mapBackgroundErrorUnc = Total[(Module[{element = #}, Last[#][[5]] & /@ element] & /@ oneOrbitMap)];
+{mapCounts, mapExposures, mapSignal, mapCountsVariance, mapBackgroundErrorUnc}] &,Range[Length[ibexHi]]
 	];
 		];	
 	mapCountsMain = Total[result[[All, 1]]];
 	mapExposuresMain = Total[result[[All, 2]]];
 	mapSignalMain = Total[result[[All, 3]]];
+	mapCountsVarianceMain = Total[result[[All, 4]]];
+	mapBackgroundErrorUncMain = Total[result[[All,5]]];
+	
+	(*Null handling*)
 	mapSignalMain = mapSignalMain /. x_?NumericQ /; x < 0 -> 0;
 	mapCountsMain = (mapCountsMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
 	mapExposuresMain = (mapExposuresMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
 	mapSignalMain = (mapSignalMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
+	mapCountsVarianceMain = (mapCountsVarianceMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
+	mapBackgroundErrorUncMain = (mapBackgroundErrorUncMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
 	
 	mapRatesMain = If[mapExposuresMain[[#]]===0||mapExposuresMain[[#]]===Null,Null,mapSignalMain[[#]]/(mapExposuresMain[[#]])]&/@Range[Length[mapExposuresMain]];
 	geometricFactorTriples = {.00013,.00037,.00073,.0014,.0025,.0042}; (*source: Dan *)
@@ -58,14 +68,23 @@ mapSignal = Total[(Module[{element = #}, Last[#][[3]] & /@ element] & /@ oneOrbi
 	mapENAFluxMain = If[mapExposuresMain[[#]]===0||mapExposuresMain[[#]]===Null,Null,mapSignalMain[[#]]/(mapExposuresMain[[#]]*geometricFactor*centralEnergy)]&/@Range[Length[mapExposuresMain]];
 	mapRatesMain = (mapRatesMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
 	mapENAFluxMain = (mapENAFluxMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
-   
-   {mapCountsMain, mapExposuresMain, mapSignalMain, mapRatesMain, mapENAFluxMain}
+	
+	(*Uncertainties: sigma_s^2 = sum t^2 c + (sum t sigma_b e)^2 ; zero-count rule: Poisson term -> 1 *)
+	mapSignalVarianceMain = If[mapExposuresMain[[#]]===0||mapExposuresMain[[#]]===Null, Null,
+	    If[TrueQ[mapCountsMain[[#]]==0], 1, mapCountsVarianceMain[[#]]] + mapBackgroundErrorUncMain[[#]]^2]&/@Range[Length[mapExposuresMain]];
+	mapRatesErrorMain = If[mapSignalVarianceMain[[#]]===Null, Null,
+	    Sqrt[mapSignalVarianceMain[[#]]]/mapExposuresMain[[#]]]&/@Range[Length[mapExposuresMain]];
+	mapENAFluxErrorMain = If[mapSignalVarianceMain[[#]]===Null, Null,
+	    Sqrt[mapSignalVarianceMain[[#]]]/(mapExposuresMain[[#]]*geometricFactor*centralEnergy)]&/@Range[Length[mapExposuresMain]];
+	
+   {mapCountsMain, mapExposuresMain, mapSignalMain, mapRatesMain, mapENAFluxMain, 
+   mapCountsVarianceMain, mapBackgroundErrorUncMain, mapRatesErrorMain, mapENAFluxErrorMain}
    ]
   ];
 
 
-exportData[mapCountsMain_, mapExposuresMain_,mapSignalMain_,mapRatesMain_,mapENAFluxMain_,tesselation_,energyStep_,outputDir_]:=Module[{datHealpy},
-datHealpy=ExportString[Transpose[Append[{Range[Length[mapCountsMain]],mapCountsMain,mapExposuresMain,mapSignalMain,mapRatesMain},mapENAFluxMain]],"Table"];
+exportData[mapCountsMain_, mapExposuresMain_,mapSignalMain_,mapRatesMain_,mapENAFluxMain_,mapCountsVarianceMain_, mapBackgroundErrorUncMain_,mapRatesErrorMain_,mapENAFluxErrorMain_,tesselation_,energyStep_,outputDir_]:=Module[{datHealpy},
+datHealpy=ExportString[Transpose[Append[{Range[Length[mapCountsMain]],mapCountsMain,mapExposuresMain,mapSignalMain,mapRatesMain,mapENAFluxMain,mapCountsVarianceMain,mapBackgroundErrorUncMain,mapRatesErrorMain},mapENAFluxErrorMain]],"Table"];
 Export[ToFileName[outputDir]<>"data_t"<>ToString[tesselation]<>"_"<>ToString[energyStep]<>"Null.txt",datHealpy];
 ]
 
@@ -216,24 +235,26 @@ colPixels=Select[angLengths,#[[2]]>=Cos[colRadius*1. Degree]&];
 Transpose[Append[{colPixels[[;;,1]]},If[colPixels[[#,2]]>1.,colPixels[[#,2]]=1;ArcCos[colPixels[[#,2]]],ArcCos[colPixels[[#,2]]]]&/@Range[Length[colPixels]]]]
 ]
 
- calcOneOrbit[ibexLatitude_,ibexLongitude_,exposuretime_,counts_,backgroundRate_,visibilityRangePixels_,healpixringxyz_, smoothing_]:=Module[{measurementIndex=#,angle1,angle2,exposuretimeValue,countValue,backgroundRateValue,domega,colPixelsDistances,colValues,nonColPixelsWithZeros,collimatorLevel,colPixelsWithValues},
+ calcOneOrbit[ibexLatitude_,ibexLongitude_,exposuretime_,counts_,backgroundRate_,backgroundRateError_,visibilityRangePixels_,healpixringxyz_, smoothing_]:=Module[{measurementIndex=#,angle1,angle2,exposuretimeValue,countValue,backgroundRateValue,backgroundRateErrorValue,domega,colPixelsDistances,colValues,nonColPixelsWithZeros,collimatorLevel,colPixelsWithValues},
 domega = Pi/(3*tesselation^2)*1.;
 angle1 = ibexLatitude[[measurementIndex]];
 angle2=ibexLongitude[[measurementIndex]];
 countValue=counts[[measurementIndex]];
 exposuretimeValue=exposuretime[[measurementIndex]];
 backgroundRateValue=backgroundRate[[measurementIndex]];
+backgroundRateErrorValue=backgroundRateError[[measurementIndex]];
 colPixelsDistances=calculateLengthsForColPixels[angle1,angle2,visibilityRangePixels];
-nonColPixelsWithZeros=#->{0,0,0}&/@Complement[Range[Length[healpixringxyz]],colPixelsDistances[[;;,1]]];
+nonColPixelsWithZeros=#->{0,0,0,0,0}&/@Complement[Range[Length[healpixringxyz]],colPixelsDistances[[;;,1]]];
 
 (*{colValues,colValuesBkg} = coll[tesselation,healpixringxyz,angle1,angle2,colPixelsDistances];*)
 colValues = coll[tesselation,healpixringxyz,angle1,angle2,colPixelsDistances,smoothing];
 colPixelsWithValues=MapThread[(Module[{idx=#1},
 idx[[1]]->{If[exposuretimeValue==0,Null,idx[[2]]*countValue],
  If[exposuretimeValue==0,Null,idx[[2]]*exposuretimeValue], 
-If[exposuretimeValue==0,Null, (idx[[2]]*countValue - (idx[[2]]*backgroundRateValue*exposuretimeValue))]
+If[exposuretimeValue==0,Null, (idx[[2]]*countValue - (idx[[2]]*backgroundRateValue*exposuretimeValue))],
+If[exposuretimeValue==0,Null, idx[[2]]^2*countValue],  (* t^2 c  : Poisson variance of counts *)
+If[exposuretimeValue==0,Null, idx[[2]]*backgroundRateErrorValue*exposuretimeValue] (* t sigma_b e : background-uncertainty term, linear sum *)
 }])&,{colValues}];
-
 
 collimatorLevel=Sort[Join[nonColPixelsWithZeros,colPixelsWithValues]]
 ]&/@Range[Length[ibexLatitude]];
