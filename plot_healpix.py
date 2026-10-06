@@ -22,7 +22,7 @@ coordsys = input()
 print('Type filename, exe: data_t64_6Null.txt?')
 dat = input()
 
-dataname = os.path.join(os.path.join(os.getcwd(), "output/Gaussian/Part1"), f"{dat}")
+dataname = os.path.join(os.path.join(os.getcwd(), "output/Gaussian/Part2"), f"{dat}")
 
 X = pd.read_csv(dataname, sep="\t", header=None)
 
