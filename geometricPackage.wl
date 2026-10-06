@@ -26,7 +26,7 @@ healpix`fun`pix2angRing[nSide_Integer?Positive, iPix_Integer?NonNegative] :=
   npix = 12 nSide^2;
   Which[
    ip <= ncap,                                     (* north cap *)
-   ir = Floor[(1 + Sqrt[1 + 2. ip])/2];
+   ir = Floor[Sqrt[ip/2 - Sqrt[Floor[ip/2]]]] + 1;
    iphi = ip - 2 ir (ir - 1);
    z = 1 - ir^2/(3. nSide^2);
    phi = (Pi/2) (iphi - 0.5)/ir;,
@@ -35,11 +35,11 @@ healpix`fun`pix2angRing[nSide_Integer?Positive, iPix_Integer?NonNegative] :=
    ir = Floor[(ip - ncap - 1)/(4 nSide)] + nSide;
    iphi = ip - ncap - 4 nSide (ir - nSide);
    z = (2 nSide - ir)/(1.5 nSide);
-   phi = (Pi/2) (iphi - If[EvenQ[ir], 0.5, 0])/nSide;,
+   phi = (Pi/2) (iphi - If[EvenQ[ir + nSide], 0.5, 1])/nSide;,
 
    True,                                           (* south cap *)
    ip = npix - ip + 1;
-   ir = Floor[(1 + Sqrt[1 + 2. ip])/2];
+   ir = Floor[Sqrt[ip/2 - Sqrt[Floor[ip/2]]]] + 1;
    iphi = 4 ir + 1 - (ip - 2 ir (ir - 1));
    z = -1 + ir^2/(3. nSide^2);
    phi = (Pi/2) (iphi - 0.5)/ir;
