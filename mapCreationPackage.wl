@@ -53,10 +53,10 @@ mapBackgroundErrorUnc = Total[(Module[{element = #}, Last[#][[5]] & /@ element] 
 	mapBackgroundErrorUncMain = Total[result[[All,5]]];
 	
 	(*Null handling*)
-	mapSignalMain = mapSignalMain /. x_?NumericQ /; x < 0 -> 0;
 	mapCountsMain = (mapCountsMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
 	mapExposuresMain = (mapExposuresMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
 	mapSignalMain = (mapSignalMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
+	mapSignalMain = mapSignalMain /. x_?NumericQ /; x < 0 -> 0;
 	mapCountsVarianceMain = (mapCountsVarianceMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
 	mapBackgroundErrorUncMain = (mapBackgroundErrorUncMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
 	
