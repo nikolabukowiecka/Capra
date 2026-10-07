@@ -53,13 +53,20 @@ mapBackgroundErrorUnc = Total[(Module[{element = #}, Last[#][[5]] & /@ element] 
 	mapBackgroundErrorUncMain = Total[result[[All,5]]];
 	
 	(*Null handling*)
-	mapCountsMain = (mapCountsMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
-	mapExposuresMain = (mapExposuresMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
-	mapSignalMain = (mapSignalMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
+	cleanNull[x_] := Module[{num = x /. Null -> 0},
+	  Which[
+	    NumericQ[x], x,                                              (* plain number *)
+	    x === Null || MatchQ[x, Times[_?NumericQ, Null]], Null,      (* only zero-exposure bins: unobserved *)
+	    NumericQ[num], num,                                          (* number + x Null: keep the number *)
+	    True, x]];
+
+	mapCountsMain = cleanNull /@ mapCountsMain;
+	mapExposuresMain = cleanNull /@ mapExposuresMain;
+	mapSignalMain = cleanNull /@ mapSignalMain;
 	mapSignalMain = mapSignalMain /. x_?NumericQ /; x < 0 -> 0;
-	mapCountsVarianceMain = (mapCountsVarianceMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
-	mapBackgroundErrorUncMain = (mapBackgroundErrorUncMain/. {(_?NumericQ) Null->Null,Plus[Null,a_?NumericQ]:>a})/. (Plus[a_?NumericQ,Null]:>a);
-	
+	mapCountsVarianceMain = cleanNull /@ mapCountsVarianceMain;
+	mapBackgroundErrorUncMain = cleanNull /@ mapBackgroundErrorUncMain;
+
 	mapRatesMain = If[mapExposuresMain[[#]]===0||mapExposuresMain[[#]]===Null,Null,mapSignalMain[[#]]/(mapExposuresMain[[#]])]&/@Range[Length[mapExposuresMain]];
 	geometricFactorTriples = {.00013,.00037,.00073,.0014,.0025,.0042}; (*source: Dan *)
 	centralEnergies = {0.45, 0.71, 1.10, 1.74, 2.73, 4.29}; (*source: Dan*)
